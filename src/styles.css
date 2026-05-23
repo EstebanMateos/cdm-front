@@ -252,6 +252,22 @@ h2 {
   margin-bottom: 14px;
 }
 
+.admin-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-strip p {
+  color: var(--text-muted);
+}
+
+.login-panel {
+  max-width: 820px;
+  margin: 90px auto 0;
+}
+
 .panel {
   padding: 16px;
   margin-bottom: 14px;
@@ -412,50 +428,111 @@ th {
   gap: 14px;
 }
 
-.bracket-viewer {
-  height: 760px;
-  overflow: hidden;
+.static-bracket {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 10px;
-  background: #f8fbff;
+  padding: 0 10px 12px;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
+    rgb(6 18 41 / 76%);
+  background-size: 34px 34px;
 }
 
-.third-place {
-  width: min(460px, 100%);
+.bracket-board {
+  position: relative;
+  margin: 0 auto;
 }
 
-.third-place h3 {
-  margin: 0 0 8px;
-  color: white;
-  font-size: 15px;
+.bracket-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
 
-.third-place-card {
+.bracket-lines path {
+  fill: none;
+  stroke: rgb(242 193 78 / 48%);
+  stroke-width: 2;
+}
+
+.static-round {
+  position: absolute;
+  top: 0;
+}
+
+.static-round h3 {
+  height: 34px;
+  color: var(--gold);
+  font-size: 13px;
+  line-height: 34px;
+  text-transform: uppercase;
+}
+
+.bracket-card {
+  position: absolute;
+  left: 0;
+  width: 188px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  background: rgb(10 31 70 / 96%);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 18%);
+}
+
+.bracket-side {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 8px;
   align-items: center;
-  gap: 10px;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 9px;
-  padding: 10px;
-  background: rgb(255 255 255 / 8%);
+  min-height: 34px;
+  padding: 7px 9px;
+  color: #dbe6ff;
+  font-size: 12px;
 }
 
-.third-place-card span {
+.bracket-side + .bracket-side {
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+
+.bracket-side span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.third-place-card span:last-child {
+.bracket-side strong {
+  color: white;
   text-align: right;
 }
 
-.third-place-card strong {
-  border-radius: 5px;
-  padding: 4px 0;
-  text-align: center;
-  background: rgb(255 255 255 / 10%);
+.bracket-side.winner {
+  color: white;
+  background: linear-gradient(90deg, rgb(242 193 78 / 18%), transparent);
+}
+
+.bracket-side.winner strong {
+  color: var(--gold);
+}
+
+.third-place {
+  position: absolute;
+  width: 188px;
+}
+
+.third-place h3 {
+  height: 34px;
+  color: var(--gold);
+  font-size: 13px;
+  line-height: 34px;
+  text-transform: uppercase;
 }
 
 .empty {
@@ -589,7 +666,7 @@ th {
     gap: 6px;
   }
 
-  .bracket-viewer {
-    height: 620px;
+  .static-bracket {
+    padding-right: 10px;
   }
 }

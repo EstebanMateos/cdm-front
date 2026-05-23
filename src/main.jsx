@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  Match,
-  SVGViewer,
-  SingleEliminationBracket,
-} from "@g-loot/react-tournament-brackets";
 import "./styles.css";
 
 const API_URL =
@@ -17,11 +12,15 @@ function App() {
   const [matches, setMatches] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [participantPredictions, setParticipantPredictions] = useState([]);
+  const [participantScore, setParticipantScore] = useState({ total_points: 0, rows: [] });
   const [name, setName] = useState("");
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const isTestPage = window.location.pathname === "/test";
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem("cdm_admin_token") || "");
+  const [adminUser, setAdminUser] = useState(() => localStorage.getItem("cdm_admin_user") || "");
+  const currentPath = window.location.pathname;
+  const isAdminPage = currentPath === "/admin" || currentPath === "/test";
 
   async function refresh() {
     const [leaderboardRes, participantsRes, matchesRes] = await Promise.all([
@@ -35,8 +34,51 @@ function App() {
   }
 
   useEffect(() => {
+    if (window.location.pathname === "/test") {
+      window.history.replaceState(null, "", "/admin");
+    }
     refresh().catch((error) => setMessage(error.message));
   }, []);
+
+  useEffect(() => {
+    if (!adminToken) return;
+    fetch(`${API_URL}/api/admin/me`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    }).then((response) => {
+      if (!response.ok) {
+        logoutAdmin();
+      }
+    });
+  }, [adminToken]);
+
+  function authHeaders() {
+    return adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+  }
+
+  async function loginAdmin(username, password) {
+    await runAction(async () => {
+      const response = await fetch(`${API_URL}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        localStorage.setItem("cdm_admin_token", payload.token);
+        localStorage.setItem("cdm_admin_user", payload.username);
+        setAdminToken(payload.token);
+        setAdminUser(payload.username);
+      }
+      return response;
+    }, "Connecté.");
+  }
+
+  function logoutAdmin() {
+    localStorage.removeItem("cdm_admin_token");
+    localStorage.removeItem("cdm_admin_user");
+    setAdminToken("");
+    setAdminUser("");
+  }
 
   async function runAction(action, success) {
     setBusy(true);
@@ -68,6 +110,7 @@ function App() {
       formData.append("file", file);
       const response = await fetch(`${API_URL}/api/import`, {
         method: "POST",
+        headers: authHeaders(),
         body: formData,
       });
       if (response.ok) {
@@ -82,11 +125,14 @@ function App() {
   async function openParticipant(row) {
     setSelectedParticipant(row);
     setParticipantPredictions([]);
+    setParticipantScore({ total_points: 0, rows: [] });
     setMessage("");
     try {
       const response = await fetch(`${API_URL}/api/score-preview/${row.id}`);
       if (!response.ok) throw new Error("Impossible de charger les pronostics.");
-      setParticipantPredictions(await response.json());
+      const payload = await response.json();
+      setParticipantScore(payload);
+      setParticipantPredictions(payload.rows || []);
     } catch (error) {
       setMessage(error.message);
     }
@@ -107,15 +153,15 @@ function App() {
           </div>
           <div>
           <h1>CDM 2026</h1>
-          <p>{isTestPage ? "Outils de simulation" : "Pronostics, résultats et classement"}</p>
+          <p>{isAdminPage ? "Administration locale" : "Pronostics, résultats et classement"}</p>
           </div>
         </div>
         <nav className="nav">
-          <a className={!isTestPage ? "active" : ""} href="/">
+          <a className={!isAdminPage ? "active" : ""} href="/">
             Classement
           </a>
-          <a className={isTestPage ? "active" : ""} href="/test">
-            Test
+          <a className={isAdminPage ? "active" : ""} href="/admin">
+            Admin
           </a>
         </nav>
         <div className="stats">
@@ -126,17 +172,28 @@ function App() {
 
       {message && <p className="message">{message}</p>}
 
-      {isTestPage ? (
-        <TestPage busy={busy} runAction={runAction} />
-      ) : (
-        <HomePage
+      {isAdminPage ? (
+        <AdminPage
+          adminToken={adminToken}
+          adminUser={adminUser}
           busy={busy}
+          file={file}
+          importXlsx={importXlsx}
           leaderboard={leaderboard}
+          loginAdmin={loginAdmin}
+          logoutAdmin={logoutAdmin}
           matches={matches}
           name={name}
-          setName={setName}
+          openParticipant={openParticipant}
+          runAction={runAction}
           setFile={setFile}
-          importXlsx={importXlsx}
+          setName={setName}
+          authHeaders={authHeaders}
+        />
+      ) : (
+        <HomePage
+          leaderboard={leaderboard}
+          matches={matches}
           openParticipant={openParticipant}
         />
       )}
@@ -145,6 +202,9 @@ function App() {
         <ParticipantPanel
           participant={selectedParticipant}
           predictions={participantPredictions}
+          totalPoints={participantScore.total_points}
+          editable={isAdminPage && Boolean(adminToken)}
+          authHeaders={authHeaders}
           onClose={() => setSelectedParticipant(null)}
           onSaved={() => openParticipant(selectedParticipant).then(refresh)}
         />
@@ -153,18 +213,48 @@ function App() {
   );
 }
 
-function HomePage({
-  busy,
-  leaderboard,
-  matches,
-  name,
-  setName,
-  setFile,
-  importXlsx,
-  openParticipant,
-}) {
+function HomePage({ leaderboard, matches, openParticipant }) {
   return (
     <>
+      <LeaderboardPanel leaderboard={leaderboard} openParticipant={openParticipant} />
+
+      <MatchesPanel matches={matches} />
+    </>
+  );
+}
+
+function AdminPage({
+  adminToken,
+  adminUser,
+  authHeaders,
+  busy,
+  importXlsx,
+  leaderboard,
+  loginAdmin,
+  logoutAdmin,
+  matches,
+  name,
+  openParticipant,
+  runAction,
+  setFile,
+  setName,
+}) {
+  if (!adminToken) {
+    return <LoginPanel busy={busy} loginAdmin={loginAdmin} />;
+  }
+
+  return (
+    <>
+      <section className="panel admin-strip">
+        <div>
+          <h2>Admin</h2>
+          <p>Connecté en tant que {adminUser}</p>
+        </div>
+        <button className="secondary" onClick={logoutAdmin}>
+          Déconnexion
+        </button>
+      </section>
+
       <section className="panel">
         <h2>Importer un fichier</h2>
         <form onSubmit={importXlsx} className="form">
@@ -184,36 +274,80 @@ function HomePage({
         </form>
       </section>
 
-      <section className="panel">
-        <h2>Classement</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Participant</th>
-              <th>Points</th>
-              <th>Pronostics</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((row, index) => (
-              <tr key={row.id} className="clickable" onClick={() => openParticipant(row)}>
-                <td>{index + 1}</td>
-                <td>{row.name}</td>
-                <td>{row.points}</td>
-                <td>{row.predictions}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
+      <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />
+      <LeaderboardPanel leaderboard={leaderboard} openParticipant={openParticipant} />
       <MatchesPanel matches={matches} />
     </>
   );
 }
 
-function TestPage({ busy, runAction }) {
+function LoginPanel({ busy, loginAdmin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    loginAdmin(username, password);
+  }
+
+  return (
+    <section className="panel login-panel">
+      <h2>Connexion admin</h2>
+      <form className="form" onSubmit={submit}>
+        <label>
+          Utilisateur
+          <input value={username} onChange={(event) => setUsername(event.target.value)} />
+        </label>
+        <label>
+          Mot de passe
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </label>
+        <button disabled={busy}>Se connecter</button>
+      </form>
+    </section>
+  );
+}
+
+function LeaderboardPanel({ leaderboard, openParticipant }) {
+  return (
+    <section className="panel">
+      <h2>Classement</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Participant</th>
+            <th>Points</th>
+            <th>Pronostics</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaderboard.map((row, index) => (
+            <tr key={row.id} className="clickable" onClick={() => openParticipant(row)}>
+              <td>{index + 1}</td>
+              <td>{row.name}</td>
+              <td>{row.points}</td>
+              <td>{row.predictions}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function TestPage({ authHeaders, busy, runAction }) {
+  const postAdmin = (path, options = {}) =>
+    fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers: { ...authHeaders(), ...(options.headers || {}) },
+      body: options.body,
+    });
+
   return (
     <section className="panel">
       <h2>Mode test</h2>
@@ -223,8 +357,7 @@ function TestPage({ busy, runAction }) {
           onClick={() =>
             runAction(
               () =>
-                fetch(`${API_URL}/api/demo/seed`, {
-                  method: "POST",
+                postAdmin("/api/demo/seed", {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ count: 12 }),
                 }),
@@ -238,7 +371,7 @@ function TestPage({ busy, runAction }) {
           disabled={busy}
           onClick={() =>
             runAction(
-              () => fetch(`${API_URL}/api/demo/simulate-group-next`, { method: "POST" }),
+              () => postAdmin("/api/demo/simulate-group-next"),
               "Prochain match de groupe simulé.",
             )
           }
@@ -249,7 +382,7 @@ function TestPage({ busy, runAction }) {
           disabled={busy}
           onClick={() =>
             runAction(
-              () => fetch(`${API_URL}/api/demo/simulate-groups`, { method: "POST" }),
+              () => postAdmin("/api/demo/simulate-groups"),
               "Tous les groupes sont simulés.",
             )
           }
@@ -260,7 +393,7 @@ function TestPage({ busy, runAction }) {
           disabled={busy}
           onClick={() =>
             runAction(
-              () => fetch(`${API_URL}/api/demo/simulate-bracket-next`, { method: "POST" }),
+              () => postAdmin("/api/demo/simulate-bracket-next"),
               "Prochain match de bracket simulé.",
             )
           }
@@ -271,7 +404,7 @@ function TestPage({ busy, runAction }) {
           disabled={busy}
           onClick={() =>
             runAction(
-              () => fetch(`${API_URL}/api/demo/simulate-bracket`, { method: "POST" }),
+              () => postAdmin("/api/demo/simulate-bracket"),
               "Tout le bracket disponible est simulé.",
             )
           }
@@ -283,7 +416,7 @@ function TestPage({ busy, runAction }) {
           disabled={busy}
           onClick={() =>
             runAction(
-              () => fetch(`${API_URL}/api/demo/reset`, { method: "POST" }),
+              () => postAdmin("/api/demo/reset"),
               "Données de test réinitialisées.",
             )
           }
@@ -330,90 +463,122 @@ function MatchesPanel({ matches }) {
 }
 
 function Bracket({ matches }) {
-  const bracketMatches = matches
-    .filter((match) => match.stage !== "third_place")
-    .sort((a, b) => a.match_num - b.match_num);
+  const mainMatches = matches.filter((match) => match.stage !== "third_place");
   const thirdPlace = matches.find((match) => match.stage === "third_place");
-  const libraryMatches = bracketMatches.map(toTournamentMatch);
+  const rounds = [
+    ["Seizièmes", mainMatches.filter((match) => match.stage === "round_of_32")],
+    ["Huitièmes", mainMatches.filter((match) => match.stage === "round_of_16")],
+    ["Quarts", mainMatches.filter((match) => match.stage === "quarter_final")],
+    ["Demies", mainMatches.filter((match) => match.stage === "semi_final")],
+    ["Finale", mainMatches.filter((match) => match.stage === "final")],
+  ].map(([label, roundMatches]) => [
+    label,
+    roundMatches.slice().sort((a, b) => a.match_num - b.match_num),
+  ]);
+  const layout = buildBracketLayout(rounds);
 
   return (
     <div className="bracket-shell">
-      <div className="bracket-viewer">
-        <SingleEliminationBracket
-          matches={libraryMatches}
-          matchComponent={Match}
-          svgWrapper={({ children, ...props }) => (
-            <SVGViewer width={1120} height={760} {...props}>
-              {children}
-            </SVGViewer>
+      <div className="static-bracket" style={{ height: layout.height }}>
+        <div className="bracket-board" style={{ width: layout.width, height: layout.height }}>
+          <svg className="bracket-lines" viewBox={`0 0 ${layout.width} ${layout.height}`}>
+          {layout.lines.map((line) => (
+            <path key={line.key} d={line.path} />
+          ))}
+          </svg>
+
+          {rounds.map(([label, roundMatches], roundIndex) => (
+            <section
+              className="static-round"
+              key={label}
+              style={{ left: layout.rounds[roundIndex].x, width: layout.cardWidth }}
+            >
+              <h3>{label}</h3>
+              {roundMatches.map((match, matchIndex) => (
+                <BracketCard
+                  key={match.match_num}
+                  match={match}
+                  top={layout.rounds[roundIndex].items[matchIndex].top}
+                />
+              ))}
+            </section>
+          ))}
+
+          {thirdPlace && (
+            <section className="third-place" style={{ left: layout.thirdPlace.x, top: layout.thirdPlace.top }}>
+              <h3>Petite finale</h3>
+              <BracketCard match={thirdPlace} top={34} />
+            </section>
           )}
-        />
+        </div>
       </div>
-      {thirdPlace && (
-        <section className="third-place">
-          <h3>Petite finale</h3>
-          <div className="third-place-card">
-            <span>{thirdPlace.home_team}</span>
-            <strong>
-              {thirdPlace.result_home_goals === null
-                ? "-"
-                : `${thirdPlace.result_home_goals} - ${thirdPlace.result_away_goals}`}
-            </strong>
-            <span>{thirdPlace.away_team}</span>
-          </div>
-        </section>
-      )}
     </div>
   );
 }
 
-function toTournamentMatch(match) {
+function BracketCard({ match, top }) {
   const hasResult = match.result_home_goals !== null;
   const homeWins = hasResult && match.result_home_goals > match.result_away_goals;
   const awayWins = hasResult && match.result_away_goals > match.result_home_goals;
 
-  return {
-    id: match.match_num,
-    name: `Match ${match.match_num}`,
-    nextMatchId: nextMatchId(match.match_num),
-    tournamentRoundText: roundText(match.stage),
-    startTime: match.kickoff || "",
-    state: hasResult ? "SCORE_DONE" : "SCHEDULED",
-    participants: [
-      {
-        id: `${match.match_num}-home`,
-        name: match.home_team,
-        resultText: hasResult ? String(match.result_home_goals) : null,
-        isWinner: homeWins,
-        status: hasResult ? "PLAYED" : null,
-      },
-      {
-        id: `${match.match_num}-away`,
-        name: match.away_team,
-        resultText: hasResult ? String(match.result_away_goals) : null,
-        isWinner: awayWins,
-        status: hasResult ? "PLAYED" : null,
-      },
-    ],
+  return (
+    <article className="bracket-card" style={{ top }}>
+      <div className={`bracket-side ${homeWins ? "winner" : ""}`}>
+        <span>{match.home_team}</span>
+        <strong>{hasResult ? match.result_home_goals : ""}</strong>
+      </div>
+      <div className={`bracket-side ${awayWins ? "winner" : ""}`}>
+        <span>{match.away_team}</span>
+        <strong>{hasResult ? match.result_away_goals : ""}</strong>
+      </div>
+    </article>
+  );
+}
+
+function buildBracketLayout(rounds) {
+  const cardWidth = 188;
+  const cardHeight = 68;
+  const roundGap = 44;
+  const firstGap = 16;
+  const headerHeight = 34;
+  const xStep = cardWidth + roundGap;
+  const roundsLayout = rounds.map(([label, matches], roundIndex) => {
+    const step = (cardHeight + firstGap) * 2 ** roundIndex;
+    const firstTop = headerHeight + ((cardHeight + firstGap) * (2 ** roundIndex - 1)) / 2;
+    return {
+      label,
+      x: roundIndex * xStep,
+      items: matches.map((match, index) => ({
+        match,
+        top: firstTop + index * step,
+        center: firstTop + index * step + cardHeight / 2,
+      })),
+    };
+  });
+  const height = headerHeight + 16 * (cardHeight + firstGap) - firstGap;
+  const width = rounds.length * cardWidth + (rounds.length - 1) * roundGap;
+  const thirdPlace = {
+    x: roundsLayout[4].x,
+    top: headerHeight + 9 * (cardHeight + firstGap),
   };
-}
+  const lines = [];
 
-function nextMatchId(matchNum) {
-  if (matchNum >= 73 && matchNum <= 88) return 89 + Math.floor((matchNum - 73) / 2);
-  if (matchNum >= 89 && matchNum <= 96) return 97 + Math.floor((matchNum - 89) / 2);
-  if (matchNum >= 97 && matchNum <= 100) return 101 + Math.floor((matchNum - 97) / 2);
-  if (matchNum === 101 || matchNum === 102) return 104;
-  return null;
-}
+  for (let roundIndex = 0; roundIndex < roundsLayout.length - 1; roundIndex += 1) {
+    const current = roundsLayout[roundIndex];
+    const next = roundsLayout[roundIndex + 1];
+    for (let index = 0; index < current.items.length; index += 1) {
+      const from = current.items[index];
+      const to = next.items[Math.floor(index / 2)];
+      if (!to) continue;
+      const x1 = current.x + cardWidth;
+      const x2 = next.x;
+      const xm = x1 + (x2 - x1) / 2;
+      const path = `M ${x1} ${from.center} H ${xm} V ${to.center} H ${x2}`;
+      lines.push({ key: `${roundIndex}-${index}`, path });
+    }
+  }
 
-function roundText(stage) {
-  return {
-    round_of_32: "Seizièmes",
-    round_of_16: "Huitièmes",
-    quarter_final: "Quarts",
-    semi_final: "Demies",
-    final: "Finale",
-  }[stage];
+  return { cardWidth, height, lines, rounds: roundsLayout, thirdPlace, width };
 }
 
 function GroupCard({ groupCode, matches }) {
@@ -512,8 +677,7 @@ function computeGroupStandings(matches) {
     );
 }
 
-function ParticipantPanel({ participant, predictions, onClose, onSaved }) {
-  const total = predictions.reduce((sum, row) => sum + row.points, 0);
+function ParticipantPanel({ authHeaders, editable, participant, predictions, totalPoints, onClose, onSaved }) {
   const [drafts, setDrafts] = useState({});
   const [savingMatch, setSavingMatch] = useState(null);
 
@@ -544,7 +708,7 @@ function ParticipantPanel({ participant, predictions, onClose, onSaved }) {
     try {
       const response = await fetch(`${API_URL}/api/predictions/${participant.id}/${matchNum}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           home_goals: Number(draft.home),
           away_goals: Number(draft.away),
@@ -566,7 +730,10 @@ function ParticipantPanel({ participant, predictions, onClose, onSaved }) {
         <div className="drawer-head">
           <div>
             <h2>{participant.name}</h2>
-            <p>{total} points sur les matchs joués</p>
+            <p>
+              {totalPoints} points sur les matchs joués
+              {editable ? " · édition admin" : ""}
+            </p>
           </div>
           <button className="secondary" onClick={onClose}>
             Fermer
@@ -581,7 +748,7 @@ function ParticipantPanel({ participant, predictions, onClose, onSaved }) {
               <th>Prono</th>
               <th>Résultat</th>
               <th>Pts</th>
-              <th></th>
+              {editable && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -600,35 +767,41 @@ function ParticipantPanel({ participant, predictions, onClose, onSaved }) {
                     {row.home_team} - {row.away_team}
                   </td>
                   <td>
-                    <div className="score-edit">
-                      <input
-                        type="number"
-                        min="0"
-                        value={draft.home}
-                        onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
-                      />
-                      <span>-</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={draft.away}
-                        onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
-                      />
-                    </div>
+                    {editable ? (
+                      <div className="score-edit">
+                        <input
+                          type="number"
+                          min="0"
+                          value={draft.home}
+                          onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
+                        />
+                        <span>-</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={draft.away}
+                          onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      `${row.predicted_home} - ${row.predicted_away}`
+                    )}
                   </td>
                   <td>
                     {row.result_home === null ? "Non joué" : `${row.result_home} - ${row.result_away}`}
                   </td>
                   <td>{row.points}</td>
-                  <td>
-                    <button
-                      className="small"
-                      disabled={!changed || savingMatch === row.match_num}
-                      onClick={() => saveDraft(row.match_num)}
-                    >
-                      OK
-                    </button>
-                  </td>
+                  {editable && (
+                    <td>
+                      <button
+                        className="small"
+                        disabled={!changed || savingMatch === row.match_num}
+                        onClick={() => saveDraft(row.match_num)}
+                      >
+                        OK
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
