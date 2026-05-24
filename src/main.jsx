@@ -583,18 +583,18 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
 
 function BracketCard({ authHeaders, editable = false, match, runAction, top }) {
   const hasResult = match.result_home_goals !== null;
-  const homeWins = hasResult && match.result_home_goals > match.result_away_goals;
-  const awayWins = hasResult && match.result_away_goals > match.result_home_goals;
+  const homeWins = hasResult && resultWinner(match) === "home";
+  const awayWins = hasResult && resultWinner(match) === "away";
 
   return (
     <article className="bracket-card" style={{ top }}>
       <div className={`bracket-side ${homeWins ? "winner" : ""}`}>
         <span>{match.home_team}</span>
-        <strong>{hasResult ? match.result_home_goals : ""}</strong>
+        <strong>{hasResult ? resultSideLabel(match, "home") : ""}</strong>
       </div>
       <div className={`bracket-side ${awayWins ? "winner" : ""}`}>
         <span>{match.away_team}</span>
-        <strong>{hasResult ? match.result_away_goals : ""}</strong>
+        <strong>{hasResult ? resultSideLabel(match, "away") : ""}</strong>
       </div>
       {editable && <ResultEditor authHeaders={authHeaders} match={match} runAction={runAction} />}
     </article>
@@ -701,11 +701,7 @@ function MatchRow({ authHeaders, editable = false, match, runAction }) {
       {editable ? (
         <ResultEditor authHeaders={authHeaders} match={match} runAction={runAction} />
       ) : (
-        <strong>
-          {match.result_home_goals === null
-            ? "-"
-            : `${match.result_home_goals} - ${match.result_away_goals}`}
-        </strong>
+        <strong>{formatResult(match)}</strong>
       )}
       <span className="team away">{match.away_team}</span>
     </div>
@@ -713,16 +709,36 @@ function MatchRow({ authHeaders, editable = false, match, runAction }) {
 }
 
 function ResultEditor({ authHeaders, match, runAction }) {
-  const [home, setHome] = useState(match.result_home_goals ?? "");
-  const [away, setAway] = useState(match.result_away_goals ?? "");
+  const hasResult = match.result_home_goals !== null;
+  const [editing, setEditing] = useState(false);
+  const [home, setHome] = useState(match.result_home_goals ?? 0);
+  const [away, setAway] = useState(match.result_away_goals ?? 0);
+  const [homePenalties, setHomePenalties] = useState(match.result_home_penalties ?? "");
+  const [awayPenalties, setAwayPenalties] = useState(match.result_away_penalties ?? "");
 
   useEffect(() => {
-    setHome(match.result_home_goals ?? "");
-    setAway(match.result_away_goals ?? "");
-  }, [match.result_home_goals, match.result_away_goals]);
+    setHome(match.result_home_goals ?? 0);
+    setAway(match.result_away_goals ?? 0);
+    setHomePenalties(match.result_home_penalties ?? "");
+    setAwayPenalties(match.result_away_penalties ?? "");
+    setEditing(false);
+  }, [
+    match.result_home_goals,
+    match.result_away_goals,
+    match.result_home_penalties,
+    match.result_away_penalties,
+  ]);
 
-  const changed = Number(home) !== match.result_home_goals || Number(away) !== match.result_away_goals;
-  const disabled = home === "" || away === "" || !changed;
+  const needsPenalties = match.stage !== "group" && Number(home) === Number(away);
+  const changed =
+    Number(home) !== match.result_home_goals ||
+    Number(away) !== match.result_away_goals ||
+    nullableNumber(homePenalties) !== match.result_home_penalties ||
+    nullableNumber(awayPenalties) !== match.result_away_penalties;
+  const penaltiesInvalid =
+    needsPenalties &&
+    (homePenalties === "" || awayPenalties === "" || Number(homePenalties) === Number(awayPenalties));
+  const disabled = home === "" || away === "" || !changed || penaltiesInvalid;
 
   function save() {
     runAction(
@@ -733,6 +749,8 @@ function ResultEditor({ authHeaders, match, runAction }) {
           body: JSON.stringify({
             home_goals: Number(home),
             away_goals: Number(away),
+            home_penalties: needsPenalties ? Number(homePenalties) : null,
+            away_penalties: needsPenalties ? Number(awayPenalties) : null,
             source: "manual",
           }),
         }),
@@ -740,16 +758,65 @@ function ResultEditor({ authHeaders, match, runAction }) {
     );
   }
 
-  return (
-    <div className="result-editor">
-      <input type="number" min="0" value={home} onChange={(event) => setHome(event.target.value)} />
-      <span>-</span>
-      <input type="number" min="0" value={away} onChange={(event) => setAway(event.target.value)} />
-      <button className="small" disabled={disabled} onClick={save}>
-        OK
+  if (!editing) {
+    return (
+      <button className="result-display" onClick={() => setEditing(true)}>
+        {hasResult ? formatResult(match) : "Saisir"}
       </button>
+    );
+  }
+
+  return (
+    <div className={`result-editor ${needsPenalties ? "with-penalties" : ""}`}>
+      <div className="score-inputs">
+        <input type="number" min="0" value={home} onChange={(event) => setHome(event.target.value)} />
+        <span>-</span>
+        <input type="number" min="0" value={away} onChange={(event) => setAway(event.target.value)} />
+      </div>
+      {needsPenalties && (
+        <div className="score-inputs penalties" title="Tirs au but">
+          <input type="number" min="0" value={homePenalties} onChange={(event) => setHomePenalties(event.target.value)} />
+          <span>tab</span>
+          <input type="number" min="0" value={awayPenalties} onChange={(event) => setAwayPenalties(event.target.value)} />
+        </div>
+      )}
+      <div className="result-actions">
+        <button className="small" disabled={disabled} onClick={save}>
+          OK
+        </button>
+        <button className="small secondary" onClick={() => setEditing(false)}>
+          ×
+        </button>
+      </div>
     </div>
   );
+}
+
+function formatResult(match) {
+  if (match.result_home_goals === null) return "-";
+  const score = `${match.result_home_goals} - ${match.result_away_goals}`;
+  if (match.result_home_penalties !== null && match.result_away_penalties !== null) {
+    return `${score} tab ${match.result_home_penalties} - ${match.result_away_penalties}`;
+  }
+  return score;
+}
+
+function resultSideLabel(match, side) {
+  const goals = side === "home" ? match.result_home_goals : match.result_away_goals;
+  const penalties = side === "home" ? match.result_home_penalties : match.result_away_penalties;
+  return penalties === null ? goals : `${goals} (${penalties})`;
+}
+
+function resultWinner(match) {
+  if (match.result_home_goals > match.result_away_goals) return "home";
+  if (match.result_away_goals > match.result_home_goals) return "away";
+  if (match.result_home_penalties > match.result_away_penalties) return "home";
+  if (match.result_away_penalties > match.result_home_penalties) return "away";
+  return null;
+}
+
+function nullableNumber(value) {
+  return value === "" || value === null || value === undefined ? null : Number(value);
 }
 
 function computeGroupStandings(matches) {
@@ -901,14 +968,14 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
                           </div>
                         ) : (
                           <strong className="prediction-score">
-                            {row.predicted_home} - {row.predicted_away}
+                            {formatPredictionScore(row)}
                           </strong>
                         )}
                         <span className="team-name away">{predictedAwayTeam}</span>
                       </div>
                       <div className="prediction-footer">
                         <span>
-                          Résultat : {row.result_home === null ? "Non joué" : `${row.result_home} - ${row.result_away}`}
+                          Résultat : {formatPredictionResult(row)}
                         </span>
                         {editable && (
                           <button
@@ -941,6 +1008,23 @@ function predictionSections(predictions) {
       rows: predictions.filter((row) => row.stage === stage),
     }))
     .filter((section) => section.rows.length > 0);
+}
+
+function formatPredictionScore(row) {
+  const score = `${row.predicted_home} - ${row.predicted_away}`;
+  if (row.predicted_home_penalties !== null && row.predicted_away_penalties !== null) {
+    return `${score} tab ${row.predicted_home_penalties} - ${row.predicted_away_penalties}`;
+  }
+  return score;
+}
+
+function formatPredictionResult(row) {
+  if (row.result_home === null) return "Non joué";
+  const score = `${row.result_home} - ${row.result_away}`;
+  if (row.result_home_penalties !== null && row.result_away_penalties !== null) {
+    return `${score} tab ${row.result_home_penalties} - ${row.result_away_penalties}`;
+  }
+  return score;
 }
 
 function stageLabel(stage) {

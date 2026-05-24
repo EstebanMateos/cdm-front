@@ -405,7 +405,7 @@ th {
 }
 
 .match-row.editable {
-  grid-template-columns: minmax(0, 1fr) 152px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(86px, auto) minmax(0, 1fr);
 }
 
 .match-row strong {
@@ -419,9 +419,24 @@ th {
 
 .result-editor {
   display: grid;
-  grid-template-columns: 34px 8px 34px 36px;
+  grid-template-columns: auto auto;
   align-items: center;
   gap: 4px;
+}
+
+.result-editor.with-penalties {
+  grid-template-columns: auto;
+}
+
+.score-inputs {
+  display: grid;
+  grid-template-columns: 34px 8px 34px;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-inputs.penalties {
+  grid-template-columns: 34px 24px 34px;
 }
 
 .result-editor input {
@@ -438,6 +453,20 @@ th {
 .result-editor button.small {
   min-height: 28px;
   padding: 0 7px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.result-display {
+  min-height: 30px;
+  padding: 0 10px;
+  color: white;
+  white-space: nowrap;
+  background: rgb(255 255 255 / 10%);
+  box-shadow: none;
 }
 
 .team {
