@@ -757,6 +757,8 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
           </thead>
           <tbody>
             {predictions.map((row) => {
+              const predictedHomeTeam = row.predicted_home_team || row.home_team;
+              const predictedAwayTeam = row.predicted_away_team || row.away_team;
               const draft = drafts[row.match_num] || {
                 home: row.predicted_home,
                 away: row.predicted_away,
@@ -768,7 +770,8 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
                 <tr key={row.match_num}>
                   <td>{row.match_num}</td>
                   <td>
-                    {row.home_team} - {row.away_team}
+                    <span className="stage-pill">{stageLabel(row.stage)}</span>
+                    {predictedHomeTeam} - {predictedAwayTeam}
                   </td>
                   <td>
                     {editable ? (
@@ -814,6 +817,18 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
       </aside>
     </div>
   );
+}
+
+function stageLabel(stage) {
+  return {
+    group: "Groupe",
+    round_of_32: "16e",
+    round_of_16: "8e",
+    quarter_final: "Quart",
+    semi_final: "Demie",
+    third_place: "Petite finale",
+    final: "Finale",
+  }[stage] || stage;
 }
 
 function Stat({ label, value }) {
