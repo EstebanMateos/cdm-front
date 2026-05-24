@@ -14,6 +14,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [scoringRules, setScoringRules] = useState({});
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [participantPredictions, setParticipantPredictions] = useState([]);
   const [participantScore, setParticipantScore] = useState({ total_points: 0, rows: [] });
@@ -27,14 +28,16 @@ function App() {
   const isAdminPage = currentPath === "/admin" || currentPath === "/test";
 
   async function refresh() {
-    const [leaderboardRes, participantsRes, matchesRes] = await Promise.all([
+    const [leaderboardRes, participantsRes, matchesRes, scoringRes] = await Promise.all([
       fetch(`${API_URL}/api/leaderboard`),
       fetch(`${API_URL}/api/participants`),
       fetch(`${API_URL}/api/matches`),
+      fetch(`${API_URL}/api/scoring`),
     ]);
     setLeaderboard(await leaderboardRes.json());
     setParticipants(await participantsRes.json());
     setMatches(await matchesRes.json());
+    setScoringRules(await scoringRes.json());
   }
 
   useEffect(() => {
@@ -222,6 +225,7 @@ function App() {
         <ParticipantPanel
           participant={selectedParticipant}
           predictions={participantPredictions}
+          scoringRules={scoringRules}
           totalPoints={participantScore.total_points}
           editable={isAdminPage && Boolean(adminToken)}
           authHeaders={authHeaders}
@@ -531,7 +535,7 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
     label,
     roundMatches.slice().sort((a, b) => a.match_num - b.match_num),
   ]);
-  const layout = buildBracketLayout(rounds);
+  const layout = buildBracketLayout(rounds, editable);
 
   return (
     <div className="bracket-shell">
@@ -554,6 +558,7 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
                 <BracketCard
                   key={match.match_num}
                   authHeaders={authHeaders}
+                  editorSide={editable && roundIndex === 0 ? "left" : "bottom"}
                   editable={editable}
                   match={match}
                   runAction={runAction}
@@ -581,13 +586,13 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
   );
 }
 
-function BracketCard({ authHeaders, editable = false, match, runAction, top }) {
+function BracketCard({ authHeaders, editable = false, editorSide = "bottom", match, runAction, top }) {
   const hasResult = match.result_home_goals !== null;
   const homeWins = hasResult && resultWinner(match) === "home";
   const awayWins = hasResult && resultWinner(match) === "away";
 
   return (
-    <article className="bracket-card" style={{ top }}>
+    <article className={`bracket-card editor-${editorSide}`} style={{ top }}>
       <div className={`bracket-side ${homeWins ? "winner" : ""}`}>
         <span>{match.home_team}</span>
         <strong>{hasResult ? resultSideLabel(match, "home") : ""}</strong>
@@ -601,19 +606,20 @@ function BracketCard({ authHeaders, editable = false, match, runAction, top }) {
   );
 }
 
-function buildBracketLayout(rounds) {
+function buildBracketLayout(rounds, editable = false) {
   const cardWidth = 188;
   const cardHeight = 68;
   const roundGap = 44;
   const firstGap = 16;
   const headerHeight = 34;
+  const editorGutter = editable ? 152 : 0;
   const xStep = cardWidth + roundGap;
   const roundsLayout = rounds.map(([label, matches], roundIndex) => {
     const step = (cardHeight + firstGap) * 2 ** roundIndex;
     const firstTop = headerHeight + ((cardHeight + firstGap) * (2 ** roundIndex - 1)) / 2;
     return {
       label,
-      x: roundIndex * xStep,
+      x: editorGutter + roundIndex * xStep,
       items: matches.map((match, index) => ({
         match,
         top: firstTop + index * step,
@@ -622,7 +628,7 @@ function buildBracketLayout(rounds) {
     };
   });
   const height = headerHeight + 16 * (cardHeight + firstGap) - firstGap;
-  const width = rounds.length * cardWidth + (rounds.length - 1) * roundGap;
+  const width = editorGutter + rounds.length * cardWidth + (rounds.length - 1) * roundGap;
   const thirdPlace = {
     x: roundsLayout[4].x,
     top: headerHeight + 9 * (cardHeight + firstGap),
@@ -860,10 +866,14 @@ function computeGroupStandings(matches) {
     );
 }
 
-function ParticipantPanel({ authHeaders, editable, participant, predictions, totalPoints, onClose, onSaved }) {
+function ParticipantPanel({ authHeaders, editable, participant, predictions, scoringRules, totalPoints, onClose, onSaved }) {
   const [drafts, setDrafts] = useState({});
   const [savingMatch, setSavingMatch] = useState(null);
+  const [stageFilter, setStageFilter] = useState("all");
   const sections = predictionSections(predictions);
+  const visibleSections = stageFilter === "all"
+    ? sections
+    : sections.filter((section) => section.key === stageFilter);
 
   useEffect(() => {
     const nextDrafts = {};
@@ -924,8 +934,29 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
           </button>
         </div>
 
-        <div className="prediction-sections">
+        <ScoringRules rules={scoringRules} />
+
+        <div className="prediction-filter" aria-label="Filtrer les pronostics">
+          <button
+            className={stageFilter === "all" ? "active" : ""}
+            onClick={() => setStageFilter("all")}
+          >
+            Tout
+          </button>
           {sections.map((section) => (
+            <button
+              className={stageFilter === section.key ? "active" : ""}
+              key={section.key}
+              onClick={() => setStageFilter(section.key)}
+            >
+              {section.label}
+              <span>{section.rows.length}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="prediction-sections">
+          {visibleSections.map((section) => (
             <section className="prediction-section" key={section.key}>
               <div className="prediction-section-head">
                 <h3>{section.label}</h3>
@@ -987,6 +1018,7 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
                           </button>
                         )}
                       </div>
+                      <PredictionPointsBreakdown row={row} scoringRules={scoringRules} />
                     </article>
                   );
                 })}
@@ -996,6 +1028,50 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
         </div>
       </aside>
     </div>
+  );
+}
+
+function PredictionPointsBreakdown({ row, scoringRules }) {
+  const details = row.point_details || [];
+  if (details.length === 0 && row.result_home === null) return null;
+
+  if (details.length === 0) {
+    return <div className="points-breakdown empty-breakdown">Aucun point sur ce match</div>;
+  }
+
+  return (
+    <div className="points-breakdown">
+      {details.map((detail, index) => (
+        <span className="points-chip" key={`${detail.key}-${detail.team || "score"}-${index}`}>
+          {pointDetailLabel(detail)}
+          <strong>+{Number(detail.points ?? scoringRules[detail.key] ?? 0)} pts</strong>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ScoringRules({ rules }) {
+  const entries = scoringRuleEntries(rules);
+  if (entries.length === 0) return null;
+
+  return (
+    <section className="scoring-rules">
+      <div>
+        <h3>Barème</h3>
+        <p>
+          Voici le barème utilisé pour calculer les points.
+        </p>
+      </div>
+      <div className="scoring-grid">
+        {entries.map(([key, value]) => (
+          <span className="scoring-chip" key={key}>
+            {scoringRuleLabel(key)}
+            <strong>{value} pts</strong>
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1010,7 +1086,42 @@ function predictionSections(predictions) {
     .filter((section) => section.rows.length > 0);
 }
 
+function scoringRuleEntries(rules) {
+  const order = [
+    "resultat_ok",
+    "score_exact",
+    "seizieme_de_finaliste_ok",
+    "huitieme_de_finaliste_ok",
+    "quart_de_finaliste_ok",
+    "demi_ok",
+    "finaliste_ok",
+    "gagnant_ok",
+  ];
+  return order
+    .filter((key) => Number.isFinite(Number(rules[key])))
+    .map((key) => [key, Number(rules[key])]);
+}
+
+function scoringRuleLabel(key) {
+  return {
+    resultat_ok: "Bon résultat, sans score exact",
+    score_exact: "Score exact du match",
+    seizieme_de_finaliste_ok: "Équipe bien pronostiquée en 16e",
+    huitieme_de_finaliste_ok: "Équipe bien pronostiquée en 8e",
+    quart_de_finaliste_ok: "Équipe bien pronostiquée en quart",
+    demi_ok: "Équipe bien pronostiquée en demi",
+    finaliste_ok: "Équipe bien pronostiquée en finale",
+    gagnant_ok: "Vainqueur final bien pronostiqué",
+  }[key] || key;
+}
+
+function pointDetailLabel(detail) {
+  if (!detail.team) return scoringRuleLabel(detail.key);
+  return `${scoringRuleLabel(detail.key)} : ${detail.team}`;
+}
+
 function formatPredictionScore(row) {
+  if (row.predicted_home === null || row.predicted_away === null) return "Non renseigné";
   const score = `${row.predicted_home} - ${row.predicted_away}`;
   if (row.predicted_home_penalties !== null && row.predicted_away_penalties !== null) {
     return `${score} tab ${row.predicted_home_penalties} - ${row.predicted_away_penalties}`;
