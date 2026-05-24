@@ -142,6 +142,21 @@ function App() {
     }
   }
 
+  async function deleteParticipant(row) {
+    if (!window.confirm(`Supprimer ${row.name} ?`)) return;
+    await runAction(
+      () =>
+        fetch(`${API_URL}/api/participants/${row.id}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        }),
+      "Participant supprimé.",
+    );
+    if (selectedParticipant?.id === row.id) {
+      setSelectedParticipant(null);
+    }
+  }
+
   const completedMatches = useMemo(
     () => matches.filter((match) => match.result_home_goals !== null).length,
     [matches],
@@ -189,6 +204,7 @@ function App() {
           matches={matches}
           name={name}
           openParticipant={openParticipant}
+          deleteParticipant={deleteParticipant}
           runAction={runAction}
           setFile={setFile}
           setName={setName}
@@ -239,6 +255,7 @@ function AdminPage({
   matches,
   name,
   openParticipant,
+  deleteParticipant,
   runAction,
   setFile,
   setName,
@@ -279,8 +296,13 @@ function AdminPage({
       </section>
 
       <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />
-      <LeaderboardPanel leaderboard={leaderboard} openParticipant={openParticipant} />
-      <MatchesPanel matches={matches} />
+      <LeaderboardPanel
+        leaderboard={leaderboard}
+        openParticipant={openParticipant}
+        deleteParticipant={deleteParticipant}
+        editable
+      />
+      <MatchesPanel authHeaders={authHeaders} editable matches={matches} runAction={runAction} />
     </>
   );
 }
@@ -316,7 +338,7 @@ function LoginPanel({ busy, loginAdmin }) {
   );
 }
 
-function LeaderboardPanel({ leaderboard, openParticipant }) {
+function LeaderboardPanel({ deleteParticipant, editable = false, leaderboard, openParticipant }) {
   return (
     <section className="panel">
       <h2>Classement</h2>
@@ -327,6 +349,7 @@ function LeaderboardPanel({ leaderboard, openParticipant }) {
             <th>Participant</th>
             <th>Points</th>
             <th>Pronostics</th>
+            {editable && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -336,6 +359,13 @@ function LeaderboardPanel({ leaderboard, openParticipant }) {
               <td>{row.name}</td>
               <td>{row.points}</td>
               <td>{row.predictions}</td>
+              {editable && (
+                <td onClick={(event) => event.stopPropagation()}>
+                  <button className="small danger" onClick={() => deleteParticipant(row)}>
+                    Supprimer
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -370,6 +400,21 @@ function TestPage({ authHeaders, busy, runAction }) {
           }
         >
           Générer participants
+        </button>
+        <button
+          disabled={busy}
+          onClick={() =>
+            runAction(
+              () =>
+                postAdmin("/api/demo/participant", {
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
+                }),
+              "Participant fictif généré.",
+            )
+          }
+        >
+          Ajouter 1 participant
         </button>
         <button
           disabled={busy}
@@ -432,7 +477,7 @@ function TestPage({ authHeaders, busy, runAction }) {
   );
 }
 
-function MatchesPanel({ matches }) {
+function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
   const groupMatches = matches.filter((match) => match.stage === "group");
   const bracketMatches = matches.filter((match) => match.stage !== "group");
   const groups = groupMatches.reduce((acc, match) => {
@@ -449,7 +494,14 @@ function MatchesPanel({ matches }) {
         <h2>Groupes</h2>
         <div className="group-grid">
           {orderedGroups.map((groupCode) => (
-            <GroupCard key={groupCode} groupCode={groupCode} matches={groups[groupCode]} />
+            <GroupCard
+              key={groupCode}
+              authHeaders={authHeaders}
+              editable={editable}
+              groupCode={groupCode}
+              matches={groups[groupCode]}
+              runAction={runAction}
+            />
           ))}
         </div>
       </section>
@@ -459,14 +511,14 @@ function MatchesPanel({ matches }) {
         {bracketMatches.length === 0 ? (
           <p className="empty">Aucun match de phase finale chargé.</p>
         ) : (
-          <Bracket matches={bracketMatches} />
+          <Bracket authHeaders={authHeaders} editable={editable} matches={bracketMatches} runAction={runAction} />
         )}
       </section>
     </>
   );
 }
 
-function Bracket({ matches }) {
+function Bracket({ authHeaders, editable = false, matches, runAction }) {
   const mainMatches = matches.filter((match) => match.stage !== "third_place");
   const thirdPlace = matches.find((match) => match.stage === "third_place");
   const rounds = [
@@ -501,7 +553,10 @@ function Bracket({ matches }) {
               {roundMatches.map((match, matchIndex) => (
                 <BracketCard
                   key={match.match_num}
+                  authHeaders={authHeaders}
+                  editable={editable}
                   match={match}
+                  runAction={runAction}
                   top={layout.rounds[roundIndex].items[matchIndex].top}
                 />
               ))}
@@ -511,7 +566,13 @@ function Bracket({ matches }) {
           {thirdPlace && (
             <section className="third-place" style={{ left: layout.thirdPlace.x, top: layout.thirdPlace.top }}>
               <h3>Petite finale</h3>
-              <BracketCard match={thirdPlace} top={34} />
+              <BracketCard
+                authHeaders={authHeaders}
+                editable={editable}
+                match={thirdPlace}
+                runAction={runAction}
+                top={34}
+              />
             </section>
           )}
         </div>
@@ -520,7 +581,7 @@ function Bracket({ matches }) {
   );
 }
 
-function BracketCard({ match, top }) {
+function BracketCard({ authHeaders, editable = false, match, runAction, top }) {
   const hasResult = match.result_home_goals !== null;
   const homeWins = hasResult && match.result_home_goals > match.result_away_goals;
   const awayWins = hasResult && match.result_away_goals > match.result_home_goals;
@@ -535,6 +596,7 @@ function BracketCard({ match, top }) {
         <span>{match.away_team}</span>
         <strong>{hasResult ? match.result_away_goals : ""}</strong>
       </div>
+      {editable && <ResultEditor authHeaders={authHeaders} match={match} runAction={runAction} />}
     </article>
   );
 }
@@ -585,7 +647,7 @@ function buildBracketLayout(rounds) {
   return { cardWidth, height, lines, rounds: roundsLayout, thirdPlace, width };
 }
 
-function GroupCard({ groupCode, matches }) {
+function GroupCard({ authHeaders, editable = false, groupCode, matches, runAction }) {
   const standings = computeGroupStandings(matches);
 
   return (
@@ -619,23 +681,73 @@ function GroupCard({ groupCode, matches }) {
           .slice()
           .sort((a, b) => a.match_num - b.match_num)
           .map((match) => (
-            <MatchRow key={match.match_num} match={match} />
+            <MatchRow
+              key={match.match_num}
+              authHeaders={authHeaders}
+              editable={editable}
+              match={match}
+              runAction={runAction}
+            />
           ))}
       </div>
     </article>
   );
 }
 
-function MatchRow({ match }) {
+function MatchRow({ authHeaders, editable = false, match, runAction }) {
   return (
-    <div className="match-row">
+    <div className={`match-row ${editable ? "editable" : ""}`}>
       <span className="team">{match.home_team}</span>
-      <strong>
-        {match.result_home_goals === null
-          ? "-"
-          : `${match.result_home_goals} - ${match.result_away_goals}`}
-      </strong>
+      {editable ? (
+        <ResultEditor authHeaders={authHeaders} match={match} runAction={runAction} />
+      ) : (
+        <strong>
+          {match.result_home_goals === null
+            ? "-"
+            : `${match.result_home_goals} - ${match.result_away_goals}`}
+        </strong>
+      )}
       <span className="team away">{match.away_team}</span>
+    </div>
+  );
+}
+
+function ResultEditor({ authHeaders, match, runAction }) {
+  const [home, setHome] = useState(match.result_home_goals ?? "");
+  const [away, setAway] = useState(match.result_away_goals ?? "");
+
+  useEffect(() => {
+    setHome(match.result_home_goals ?? "");
+    setAway(match.result_away_goals ?? "");
+  }, [match.result_home_goals, match.result_away_goals]);
+
+  const changed = Number(home) !== match.result_home_goals || Number(away) !== match.result_away_goals;
+  const disabled = home === "" || away === "" || !changed;
+
+  function save() {
+    runAction(
+      () =>
+        fetch(`${API_URL}/api/results/${match.match_num}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            home_goals: Number(home),
+            away_goals: Number(away),
+            source: "manual",
+          }),
+        }),
+      "Résultat enregistré.",
+    );
+  }
+
+  return (
+    <div className="result-editor">
+      <input type="number" min="0" value={home} onChange={(event) => setHome(event.target.value)} />
+      <span>-</span>
+      <input type="number" min="0" value={away} onChange={(event) => setAway(event.target.value)} />
+      <button className="small" disabled={disabled} onClick={save}>
+        OK
+      </button>
     </div>
   );
 }
