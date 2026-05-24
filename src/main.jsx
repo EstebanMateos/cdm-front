@@ -684,6 +684,7 @@ function computeGroupStandings(matches) {
 function ParticipantPanel({ authHeaders, editable, participant, predictions, totalPoints, onClose, onSaved }) {
   const [drafts, setDrafts] = useState({});
   const [savingMatch, setSavingMatch] = useState(null);
+  const sections = predictionSections(predictions);
 
   useEffect(() => {
     const nextDrafts = {};
@@ -744,79 +745,90 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, tot
           </button>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Match</th>
-              <th>Prono</th>
-              <th>Résultat</th>
-              <th>Pts</th>
-              {editable && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {predictions.map((row) => {
-              const predictedHomeTeam = row.predicted_home_team || row.home_team;
-              const predictedAwayTeam = row.predicted_away_team || row.away_team;
-              const draft = drafts[row.match_num] || {
-                home: row.predicted_home,
-                away: row.predicted_away,
-              };
-              const changed =
-                Number(draft.home) !== row.predicted_home || Number(draft.away) !== row.predicted_away;
+        <div className="prediction-sections">
+          {sections.map((section) => (
+            <section className="prediction-section" key={section.key}>
+              <div className="prediction-section-head">
+                <h3>{section.label}</h3>
+                <span>{section.rows.length} matchs</span>
+              </div>
+              <div className="prediction-grid">
+                {section.rows.map((row) => {
+                  const predictedHomeTeam = row.predicted_home_team || row.home_team;
+                  const predictedAwayTeam = row.predicted_away_team || row.away_team;
+                  const draft = drafts[row.match_num] || {
+                    home: row.predicted_home,
+                    away: row.predicted_away,
+                  };
+                  const changed =
+                    Number(draft.home) !== row.predicted_home || Number(draft.away) !== row.predicted_away;
 
-              return (
-                <tr key={row.match_num}>
-                  <td>{row.match_num}</td>
-                  <td>
-                    <span className="stage-pill">{stageLabel(row.stage)}</span>
-                    {predictedHomeTeam} - {predictedAwayTeam}
-                  </td>
-                  <td>
-                    {editable ? (
-                      <div className="score-edit">
-                        <input
-                          type="number"
-                          min="0"
-                          value={draft.home}
-                          onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
-                        />
-                        <span>-</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={draft.away}
-                          onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
-                        />
+                  return (
+                    <article className="prediction-card" key={row.match_num}>
+                      <div className="prediction-meta">
+                        <span>{row.match_num}</span>
+                        <strong>{row.points} pts</strong>
                       </div>
-                    ) : (
-                      `${row.predicted_home} - ${row.predicted_away}`
-                    )}
-                  </td>
-                  <td>
-                    {row.result_home === null ? "Non joué" : `${row.result_home} - ${row.result_away}`}
-                  </td>
-                  <td>{row.points}</td>
-                  {editable && (
-                    <td>
-                      <button
-                        className="small"
-                        disabled={!changed || savingMatch === row.match_num}
-                        onClick={() => saveDraft(row.match_num)}
-                      >
-                        OK
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      <div className="prediction-match">
+                        <span className="team-name">{predictedHomeTeam}</span>
+                        {editable ? (
+                          <div className="score-edit compact">
+                            <input
+                              type="number"
+                              min="0"
+                              value={draft.home}
+                              onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
+                            />
+                            <span>-</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={draft.away}
+                              onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
+                            />
+                          </div>
+                        ) : (
+                          <strong className="prediction-score">
+                            {row.predicted_home} - {row.predicted_away}
+                          </strong>
+                        )}
+                        <span className="team-name away">{predictedAwayTeam}</span>
+                      </div>
+                      <div className="prediction-footer">
+                        <span>
+                          Résultat : {row.result_home === null ? "Non joué" : `${row.result_home} - ${row.result_away}`}
+                        </span>
+                        {editable && (
+                          <button
+                            className="small"
+                            disabled={!changed || savingMatch === row.match_num}
+                            onClick={() => saveDraft(row.match_num)}
+                          >
+                            OK
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       </aside>
     </div>
   );
+}
+
+function predictionSections(predictions) {
+  const order = ["group", "round_of_32", "round_of_16", "quarter_final", "semi_final", "third_place", "final"];
+  return order
+    .map((stage) => ({
+      key: stage,
+      label: stageLabel(stage),
+      rows: predictions.filter((row) => row.stage === stage),
+    }))
+    .filter((section) => section.rows.length > 0);
 }
 
 function stageLabel(stage) {
