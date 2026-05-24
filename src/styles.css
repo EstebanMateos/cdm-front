@@ -559,12 +559,19 @@ th {
   overflow: auto;
   border-left: 1px solid var(--line);
   padding: 24px;
-  color: var(--ink);
-  background: var(--paper);
+  color: #eaf0ff;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
+    linear-gradient(145deg, #071733 0%, #102d69 58%, #061229 100%);
+  background-size:
+    44px 44px,
+    44px 44px,
+    auto;
 }
 
 .drawer h2 {
-  color: var(--ink);
+  color: #fff;
 }
 
 .drawer-head {
@@ -577,14 +584,14 @@ th {
   gap: 16px;
   margin: -24px -24px 18px;
   padding: 24px;
-  border-bottom: 1px solid #dfe6f1;
-  background: rgb(248 251 255 / 94%);
+  border-bottom: 1px solid var(--line);
+  background: rgb(6 18 41 / 92%);
   backdrop-filter: blur(12px);
 }
 
 .drawer-head p {
   margin-top: 4px;
-  color: #66737a;
+  color: var(--text-muted);
 }
 
 .score-edit {
@@ -600,15 +607,15 @@ th {
 
 .score-edit input {
   min-height: 32px;
-  border-color: #c8d3e5;
+  border-color: rgb(255 255 255 / 18%);
   padding: 4px 6px;
-  color: var(--ink);
+  color: #eaf0ff;
   text-align: center;
-  background: white;
+  background: rgb(255 255 255 / 10%);
 }
 
 .score-edit span {
-  color: #66737a;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -631,12 +638,12 @@ th {
 
 .prediction-section-head h3 {
   margin: 0;
-  color: var(--ink);
+  color: #fff;
   font-size: 18px;
 }
 
 .prediction-section-head span {
-  color: #61708d;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;
 }
@@ -651,10 +658,10 @@ th {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #dce5f2;
+  border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 8px;
-  background: white;
-  box-shadow: 0 10px 28px rgb(8 23 58 / 7%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 7%));
+  box-shadow: 0 14px 30px rgb(0 0 0 / 18%);
 }
 
 .prediction-meta,
@@ -663,14 +670,14 @@ th {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: #61708d;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .prediction-meta strong {
-  color: #8a6a16;
+  color: var(--gold);
 }
 
 .prediction-match {
@@ -683,7 +690,7 @@ th {
 .team-name {
   min-width: 0;
   overflow: hidden;
-  color: var(--ink);
+  color: #fff;
   font-size: 15px;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -698,9 +705,9 @@ th {
   min-width: 72px;
   padding: 7px 10px;
   border-radius: 8px;
-  color: var(--ink);
+  color: #061229;
   text-align: center;
-  background: #fff1c2;
+  background: linear-gradient(180deg, #ffe58f, var(--gold));
 }
 
 @media (max-width: 1200px) {
