@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-const configuredApiUrl = import.meta.env.VITE_API_URL;
+const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
 const API_URL =
-  configuredApiUrl !== undefined && configuredApiUrl !== null
+  configuredApiUrl
     ? configuredApiUrl.replace(/\/$/, "")
     : window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
       ? `${window.location.protocol}//${window.location.hostname}:5050`
