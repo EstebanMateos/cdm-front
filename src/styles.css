@@ -44,20 +44,6 @@ body {
     auto;
 }
 
-body::before {
-  content: "★\A★";
-  position: fixed;
-  left: max(72px, calc((100vw - min(1720px, calc(100vw - 28px))) / 4));
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: pre;
-  color: rgb(242 193 78 / 42%);
-  font-size: 88px;
-  font-weight: 900;
-  line-height: 1.55;
-  pointer-events: none;
-}
-
 button,
 input {
   font: inherit;
@@ -102,23 +88,45 @@ a {
   color: inherit;
 }
 
-.shell {
-  width: min(1720px, calc(100% - 28px));
+.page-frame {
+  display: grid;
+  grid-template-columns: minmax(112px, 1fr) minmax(0, 1720px) minmax(112px, 1fr);
+  gap: 16px;
+  width: min(100%, 2220px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 18px 0 36px;
+  padding: 18px 14px 36px;
 }
 
-.rooster-bg {
-  position: fixed;
-  right: max(72px, calc((100vw - min(1720px, calc(100vw - 28px))) / 4));
-  top: 51%;
-  z-index: 0;
-  width: 190px;
-  height: 238px;
-  transform: translate(50%, -50%);
-  opacity: 0.5;
+.shell {
+  min-width: 0;
+}
+
+.side-panel {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  place-items: center;
+  height: calc(100vh - 36px);
+  min-height: 520px;
+  border: 0;
+  background: transparent;
   pointer-events: none;
+}
+
+.side-stars {
+  display: grid;
+  gap: 56px;
+  color: rgb(242 193 78 / 48%);
+  font-size: clamp(68px, 5vw, 96px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.side-rooster {
+  width: clamp(140px, 9vw, 210px);
+  max-width: 82%;
+  opacity: 0.55;
 }
 
 .topbar {
@@ -273,6 +281,47 @@ h2 {
   margin-bottom: 14px;
 }
 
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.panel-head h2 {
+  margin-bottom: 4px;
+}
+
+.panel-head p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 3px;
+  background: rgb(255 255 255 / 7%);
+}
+
+.segmented button {
+  min-height: 32px;
+  border-color: transparent;
+  padding: 0 10px;
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.segmented button.active {
+  border-color: rgb(242 193 78 / 58%);
+  color: white;
+  background: rgb(242 193 78 / 16%);
+}
+
 .form {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
@@ -341,6 +390,35 @@ th {
 
 .clickable:hover {
   background: rgb(47 111 228 / 15%);
+}
+
+.subset-toggle {
+  display: inline-flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.subset-toggle input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--gold);
+}
+
+.test-toggle {
+  min-height: 36px;
+  border: 1px solid rgb(242 193 78 / 32%);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgb(242 193 78 / 10%);
+}
+
+.empty-row {
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .group-grid {
@@ -903,39 +981,56 @@ th {
 }
 
 @media (max-width: 1200px) {
+  .page-frame {
+    grid-template-columns: 76px minmax(0, 1fr) 76px;
+    gap: 10px;
+    padding-inline: 10px;
+  }
+
+  .side-panel {
+    min-height: 420px;
+  }
+
+  .side-stars {
+    gap: 44px;
+    font-size: 54px;
+  }
+
+  .side-rooster {
+    width: 72px;
+  }
+
   .group-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 850px) {
-  body::before {
-    left: 18px;
-    font-size: 42px;
-    opacity: 0.35;
+  .page-frame {
+    grid-template-columns: 1fr;
+    padding: 9px;
   }
 
-  body::after {
-    content: none;
-  }
-
-  .rooster-bg {
-    right: 18px;
-    width: 88px;
-    height: 110px;
-    opacity: 0.34;
-  }
-
-  .shell {
-    width: min(100% - 18px, 1720px);
-    margin: 0 auto;
-    padding-top: 9px;
+  .side-panel {
+    display: none;
   }
 
   .topbar {
     position: static;
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .panel-head {
+    display: grid;
+  }
+
+  .segmented {
+    width: 100%;
+  }
+
+  .segmented button {
+    flex: 1;
   }
 
   .stats {

@@ -22,10 +22,12 @@ function App() {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [leaderboardMode, setLeaderboardMode] = useState("all");
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("cdm_admin_token") || "");
   const [adminUser, setAdminUser] = useState(() => localStorage.getItem("cdm_admin_user") || "");
   const currentPath = window.location.pathname;
   const isAdminPage = currentPath === "/admin" || currentPath === "/test";
+  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
   async function refresh() {
     const [leaderboardRes, participantsRes, matchesRes, scoringRes] = await Promise.all([
@@ -160,14 +162,33 @@ function App() {
     }
   }
 
+  async function updateParticipantSubset(row, enabled) {
+    await runAction(
+      () =>
+        fetch(`${API_URL}/api/participants/${row.id}/subset`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ enabled }),
+        }),
+      enabled ? "Participant ajouté à Famille." : "Participant retiré de Famille.",
+    );
+  }
+
   const completedMatches = useMemo(
     () => matches.filter((match) => match.result_home_goals !== null).length,
     [matches],
   );
 
   return (
-    <main className="shell">
-      <img className="rooster-bg" src="/assets/rooster-gold.svg" alt="" aria-hidden="true" />
+    <div className="page-frame">
+      <aside className="side-panel side-panel-left" aria-hidden="true">
+        <div className="side-stars">
+          <span>★</span>
+          <span>★</span>
+        </div>
+      </aside>
+
+      <main className="shell">
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">
@@ -201,6 +222,7 @@ function App() {
           busy={busy}
           file={file}
           importXlsx={importXlsx}
+          isLocalhost={isLocalhost}
           leaderboard={leaderboard}
           loginAdmin={loginAdmin}
           logoutAdmin={logoutAdmin}
@@ -208,16 +230,21 @@ function App() {
           name={name}
           openParticipant={openParticipant}
           deleteParticipant={deleteParticipant}
+          leaderboardMode={leaderboardMode}
           runAction={runAction}
           setFile={setFile}
+          setLeaderboardMode={setLeaderboardMode}
           setName={setName}
+          updateParticipantSubset={updateParticipantSubset}
           authHeaders={authHeaders}
         />
       ) : (
         <HomePage
           leaderboard={leaderboard}
+          leaderboardMode={leaderboardMode}
           matches={matches}
           openParticipant={openParticipant}
+          setLeaderboardMode={setLeaderboardMode}
         />
       )}
 
@@ -233,14 +260,24 @@ function App() {
           onSaved={() => openParticipant(selectedParticipant).then(refresh)}
         />
       )}
-    </main>
+      </main>
+
+      <aside className="side-panel side-panel-right" aria-hidden="true">
+        <img className="side-rooster" src="/assets/rooster-gold.svg" alt="" />
+      </aside>
+    </div>
   );
 }
 
-function HomePage({ leaderboard, matches, openParticipant }) {
+function HomePage({ leaderboard, leaderboardMode, matches, openParticipant, setLeaderboardMode }) {
   return (
     <>
-      <LeaderboardPanel leaderboard={leaderboard} openParticipant={openParticipant} />
+      <LeaderboardPanel
+        leaderboard={leaderboard}
+        leaderboardMode={leaderboardMode}
+        openParticipant={openParticipant}
+        setLeaderboardMode={setLeaderboardMode}
+      />
 
       <MatchesPanel matches={matches} />
     </>
@@ -253,7 +290,9 @@ function AdminPage({
   authHeaders,
   busy,
   importXlsx,
+  isLocalhost,
   leaderboard,
+  leaderboardMode,
   loginAdmin,
   logoutAdmin,
   matches,
@@ -261,8 +300,10 @@ function AdminPage({
   openParticipant,
   deleteParticipant,
   runAction,
+  setLeaderboardMode,
   setFile,
   setName,
+  updateParticipantSubset,
 }) {
   if (!adminToken) {
     return <LoginPanel busy={busy} loginAdmin={loginAdmin} />;
@@ -299,11 +340,14 @@ function AdminPage({
         </form>
       </section>
 
-      <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />
+      <TestPage authHeaders={authHeaders} busy={busy} isLocalhost={isLocalhost} runAction={runAction} />
       <LeaderboardPanel
         leaderboard={leaderboard}
+        leaderboardMode={leaderboardMode}
         openParticipant={openParticipant}
         deleteParticipant={deleteParticipant}
+        setLeaderboardMode={setLeaderboardMode}
+        updateParticipantSubset={updateParticipantSubset}
         editable
       />
       <MatchesPanel authHeaders={authHeaders} editable matches={matches} runAction={runAction} />
@@ -342,10 +386,46 @@ function LoginPanel({ busy, loginAdmin }) {
   );
 }
 
-function LeaderboardPanel({ deleteParticipant, editable = false, leaderboard, openParticipant }) {
+function LeaderboardPanel({
+  deleteParticipant,
+  editable = false,
+  leaderboard,
+  leaderboardMode,
+  openParticipant,
+  setLeaderboardMode,
+  updateParticipantSubset,
+}) {
+  const visibleLeaderboard = leaderboardMode === "subset"
+    ? leaderboard.filter((row) => row.subset_enabled)
+    : leaderboard;
+  const subsetCount = leaderboard.filter((row) => row.subset_enabled).length;
+
   return (
     <section className="panel">
-      <h2>Classement</h2>
+      <div className="panel-head">
+        <div>
+          <h2>{leaderboardMode === "subset" ? "Famille" : "Classement général"}</h2>
+          <p>
+            {leaderboardMode === "subset"
+              ? `${subsetCount} participant${subsetCount > 1 ? "s" : ""} activé${subsetCount > 1 ? "s" : ""}`
+              : `${leaderboard.length} participant${leaderboard.length > 1 ? "s" : ""}`}
+          </p>
+        </div>
+        <div className="segmented">
+          <button
+            className={leaderboardMode === "all" ? "active" : ""}
+            onClick={() => setLeaderboardMode("all")}
+          >
+            Général
+          </button>
+          <button
+            className={leaderboardMode === "subset" ? "active" : ""}
+            onClick={() => setLeaderboardMode("subset")}
+          >
+            Famille
+          </button>
+        </div>
+      </div>
       <table>
         <thead>
           <tr>
@@ -353,16 +433,29 @@ function LeaderboardPanel({ deleteParticipant, editable = false, leaderboard, op
             <th>Participant</th>
             <th>Points</th>
             <th>Pronostics</th>
+            {editable && <th>Famille</th>}
             {editable && <th></th>}
           </tr>
         </thead>
         <tbody>
-          {leaderboard.map((row, index) => (
+          {visibleLeaderboard.map((row, index) => (
             <tr key={row.id} className="clickable" onClick={() => openParticipant(row)}>
               <td>{index + 1}</td>
               <td>{row.name}</td>
               <td>{row.points}</td>
               <td>{row.predictions}</td>
+              {editable && (
+                <td onClick={(event) => event.stopPropagation()}>
+                  <label className="subset-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(row.subset_enabled)}
+                      onChange={(event) => updateParticipantSubset(row, event.target.checked)}
+                    />
+                    <span>Actif</span>
+                  </label>
+                </td>
+              )}
               {editable && (
                 <td onClick={(event) => event.stopPropagation()}>
                   <button className="small danger" onClick={() => deleteParticipant(row)}>
@@ -372,26 +465,55 @@ function LeaderboardPanel({ deleteParticipant, editable = false, leaderboard, op
               )}
             </tr>
           ))}
+          {visibleLeaderboard.length === 0 && (
+            <tr>
+              <td colSpan={editable ? 6 : 4} className="empty-row">
+                Aucun participant dans ce classement.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </section>
   );
 }
 
-function TestPage({ authHeaders, busy, runAction }) {
+function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
+  const [remoteTestEnabled, setRemoteTestEnabled] = useState(false);
+  const testEnabled = isLocalhost || remoteTestEnabled;
+  const testHeaders = !isLocalhost && remoteTestEnabled ? { "X-CDM-Test-Enabled": "1" } : {};
   const postAdmin = (path, options = {}) =>
     fetch(`${API_URL}${path}`, {
       method: "POST",
-      headers: { ...authHeaders(), ...(options.headers || {}) },
+      headers: { ...testHeaders, ...authHeaders(), ...(options.headers || {}) },
       body: options.body,
     });
 
   return (
     <section className="panel">
-      <h2>Mode test</h2>
+      <div className="panel-head">
+        <div>
+          <h2>Mode test</h2>
+          <p>
+            {isLocalhost
+              ? "Disponible automatiquement en local."
+              : "Désactivé hors localhost tant qu'il n'est pas activé explicitement."}
+          </p>
+        </div>
+        {!isLocalhost && (
+          <label className="subset-toggle test-toggle">
+            <input
+              type="checkbox"
+              checked={remoteTestEnabled}
+              onChange={(event) => setRemoteTestEnabled(event.target.checked)}
+            />
+            <span>Activer</span>
+          </label>
+        )}
+      </div>
       <div className="actions">
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () =>
@@ -406,7 +528,7 @@ function TestPage({ authHeaders, busy, runAction }) {
           Générer participants
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () =>
@@ -421,7 +543,7 @@ function TestPage({ authHeaders, busy, runAction }) {
           Ajouter 1 participant
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-group-next"),
@@ -432,7 +554,7 @@ function TestPage({ authHeaders, busy, runAction }) {
           Simuler prochain groupe
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-groups"),
@@ -443,7 +565,7 @@ function TestPage({ authHeaders, busy, runAction }) {
           Simuler groupes
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-bracket-next"),
@@ -454,7 +576,7 @@ function TestPage({ authHeaders, busy, runAction }) {
           Simuler prochain bracket
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-bracket"),
@@ -466,11 +588,11 @@ function TestPage({ authHeaders, busy, runAction }) {
         </button>
         <button
           className="danger"
-          disabled={busy}
+          disabled={busy || !testEnabled}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/reset"),
-              "Données de test réinitialisées.",
+              "Résultats réinitialisés.",
             )
           }
         >
