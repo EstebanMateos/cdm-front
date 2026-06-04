@@ -1157,23 +1157,30 @@ function PredictionPointsBreakdown({ row, scoringRules }) {
 }
 
 function ScoringRules({ rules }) {
-  const entries = scoringRuleEntries(rules);
-  if (entries.length === 0) return null;
+  const groups = scoringRuleGroups(rules).filter((group) => group.entries.length > 0);
+  if (groups.length === 0) return null;
 
   return (
     <section className="scoring-rules">
-      <div>
+      <div className="scoring-rules-head">
         <h3>Barème</h3>
         <p>
           Voici le barème utilisé pour calculer les points.
         </p>
       </div>
-      <div className="scoring-grid">
-        {entries.map(([key, value]) => (
-          <span className="scoring-chip" key={key}>
-            {scoringRuleLabel(key)}
-            <strong>{value} pts</strong>
-          </span>
+      <div className="scoring-groups">
+        {groups.map((group) => (
+          <div className="scoring-group" key={group.title}>
+            <h4>{group.title}</h4>
+            <div className="scoring-list">
+              {group.entries.map(([key, value]) => (
+                <span className="scoring-row" key={key}>
+                  <span>{scoringRuleLabel(key)}</span>
+                  <strong>{value} pts</strong>
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -1191,26 +1198,40 @@ function predictionSections(predictions) {
     .filter((section) => section.rows.length > 0);
 }
 
-function scoringRuleEntries(rules) {
-  const order = [
-    "resultat_ok",
-    "score_exact",
-    "affiche_seizieme_ok",
-    "seizieme_de_finaliste_ok",
-    "affiche_huitieme_ok",
-    "huitieme_de_finaliste_ok",
-    "affiche_quart_ok",
-    "quart_de_finaliste_ok",
-    "affiche_demi_ok",
-    "demi_ok",
-    "affiche_petite_finale_ok",
-    "affiche_finale_ok",
-    "finaliste_ok",
-    "gagnant_ok",
+function scoringRuleGroups(rules) {
+  const groups = [
+    {
+      title: "Score du match",
+      keys: ["resultat_ok", "score_exact", "gagnant_ok"],
+    },
+    {
+      title: "Bonne affiche",
+      keys: [
+        "affiche_seizieme_ok",
+        "affiche_huitieme_ok",
+        "affiche_quart_ok",
+        "affiche_demi_ok",
+        "affiche_petite_finale_ok",
+        "affiche_finale_ok",
+      ],
+    },
+    {
+      title: "Équipe au bon tour",
+      keys: [
+        "seizieme_de_finaliste_ok",
+        "huitieme_de_finaliste_ok",
+        "quart_de_finaliste_ok",
+        "demi_ok",
+        "finaliste_ok",
+      ],
+    },
   ];
-  return order
-    .filter((key) => Number.isFinite(Number(rules[key])))
-    .map((key) => [key, Number(rules[key])]);
+  return groups.map((group) => ({
+    ...group,
+    entries: group.keys
+      .filter((key) => Number.isFinite(Number(rules[key])))
+      .map((key) => [key, Number(rules[key])]),
+  }));
 }
 
 function scoringRuleLabel(key) {

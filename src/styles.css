@@ -812,12 +812,14 @@ th {
 
 .scoring-rules {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 18px;
   padding: 14px;
   border: 1px solid rgb(255 255 255 / 14%);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 6%));
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 5%)),
+    rgb(8 24 54 / 78%);
 }
 
 .scoring-rules h3 {
@@ -832,28 +834,59 @@ th {
   font-size: 13px;
 }
 
-.scoring-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.scoring-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.scoring-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 10px;
+.scoring-group {
+  overflow: hidden;
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 8px;
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 800;
   background: rgb(7 18 42 / 72%);
 }
 
-.scoring-chip strong {
+.scoring-group h4 {
+  margin: 0;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
   color: var(--gold);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.scoring-list {
+  display: grid;
+}
+
+.scoring-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scoring-row:last-child {
+  border-bottom: 0;
+}
+
+.scoring-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoring-row strong {
+  min-width: 44px;
+  color: var(--gold);
+  text-align: right;
 }
 
 .prediction-filter {
@@ -1002,6 +1035,10 @@ th {
 
   .group-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scoring-groups {
+    grid-template-columns: 1fr;
   }
 }
 
