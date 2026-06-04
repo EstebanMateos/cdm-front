@@ -340,7 +340,7 @@ function AdminPage({
         </form>
       </section>
 
-      <TestPage authHeaders={authHeaders} busy={busy} isLocalhost={isLocalhost} runAction={runAction} />
+      {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <LeaderboardPanel
         leaderboard={leaderboard}
         leaderboardMode={leaderboardMode}
@@ -478,14 +478,11 @@ function LeaderboardPanel({
   );
 }
 
-function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
-  const [remoteTestEnabled, setRemoteTestEnabled] = useState(false);
-  const testEnabled = isLocalhost || remoteTestEnabled;
-  const testHeaders = !isLocalhost && remoteTestEnabled ? { "X-CDM-Test-Enabled": "1" } : {};
+function TestPage({ authHeaders, busy, runAction }) {
   const postAdmin = (path, options = {}) =>
     fetch(`${API_URL}${path}`, {
       method: "POST",
-      headers: { ...testHeaders, ...authHeaders(), ...(options.headers || {}) },
+      headers: { ...authHeaders(), ...(options.headers || {}) },
       body: options.body,
     });
 
@@ -494,26 +491,12 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
       <div className="panel-head">
         <div>
           <h2>Mode test</h2>
-          <p>
-            {isLocalhost
-              ? "Disponible automatiquement en local."
-              : "Désactivé hors localhost tant qu'il n'est pas activé explicitement."}
-          </p>
+          <p>Disponible uniquement en local.</p>
         </div>
-        {!isLocalhost && (
-          <label className="subset-toggle test-toggle">
-            <input
-              type="checkbox"
-              checked={remoteTestEnabled}
-              onChange={(event) => setRemoteTestEnabled(event.target.checked)}
-            />
-            <span>Activer</span>
-          </label>
-        )}
       </div>
       <div className="actions">
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () =>
@@ -528,7 +511,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
           Générer participants
         </button>
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () =>
@@ -543,7 +526,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
           Ajouter 1 participant
         </button>
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-group-next"),
@@ -554,7 +537,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
           Simuler prochain groupe
         </button>
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-groups"),
@@ -565,7 +548,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
           Simuler groupes
         </button>
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-bracket-next"),
@@ -576,7 +559,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
           Simuler prochain bracket
         </button>
         <button
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/simulate-bracket"),
@@ -588,7 +571,7 @@ function TestPage({ authHeaders, busy, isLocalhost, runAction }) {
         </button>
         <button
           className="danger"
-          disabled={busy || !testEnabled}
+          disabled={busy}
           onClick={() =>
             runAction(
               () => postAdmin("/api/demo/reset"),
