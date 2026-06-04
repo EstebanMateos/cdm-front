@@ -1195,10 +1195,16 @@ function scoringRuleEntries(rules) {
   const order = [
     "resultat_ok",
     "score_exact",
+    "affiche_seizieme_ok",
     "seizieme_de_finaliste_ok",
+    "affiche_huitieme_ok",
     "huitieme_de_finaliste_ok",
+    "affiche_quart_ok",
     "quart_de_finaliste_ok",
+    "affiche_demi_ok",
     "demi_ok",
+    "affiche_petite_finale_ok",
+    "affiche_finale_ok",
     "finaliste_ok",
     "gagnant_ok",
   ];
@@ -1211,10 +1217,16 @@ function scoringRuleLabel(key) {
   return {
     resultat_ok: "Bon résultat, sans score exact",
     score_exact: "Score exact du match",
+    affiche_seizieme_ok: "Bonne affiche pronostiquée en 16e",
     seizieme_de_finaliste_ok: "Équipe bien pronostiquée en 16e",
+    affiche_huitieme_ok: "Bonne affiche pronostiquée en 8e",
     huitieme_de_finaliste_ok: "Équipe bien pronostiquée en 8e",
+    affiche_quart_ok: "Bonne affiche pronostiquée en quart",
     quart_de_finaliste_ok: "Équipe bien pronostiquée en quart",
+    affiche_demi_ok: "Bonne affiche pronostiquée en demi",
     demi_ok: "Équipe bien pronostiquée en demi",
+    affiche_petite_finale_ok: "Bonne affiche pronostiquée en petite finale",
+    affiche_finale_ok: "Bonne affiche pronostiquée en finale",
     finaliste_ok: "Équipe bien pronostiquée en finale",
     gagnant_ok: "Vainqueur final bien pronostiqué",
   }[key] || key;
