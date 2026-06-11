@@ -340,6 +340,8 @@ function AdminPage({
         </form>
       </section>
 
+      <ManualParticipantForm authHeaders={authHeaders} matches={matches} runAction={runAction} />
+
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <LeaderboardPanel
         leaderboard={leaderboard}
@@ -382,6 +384,121 @@ function LoginPanel({ busy, loginAdmin }) {
         </label>
         <button disabled={busy}>Se connecter</button>
       </form>
+    </section>
+  );
+}
+
+function ManualParticipantForm({ authHeaders, matches, runAction }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [drafts, setDrafts] = useState({});
+  const groupMatches = matches.filter((match) => match.stage === "group");
+  const grouped = groupMatches.reduce((acc, match) => {
+    const group = match.group_code || "?";
+    acc[group] = acc[group] || [];
+    acc[group].push(match);
+    return acc;
+  }, {});
+  const orderedGroups = Object.keys(grouped).sort();
+  const completeCount = groupMatches.filter((match) => {
+    const draft = drafts[match.match_num] || {};
+    return draft.home !== undefined && draft.home !== "" && draft.away !== undefined && draft.away !== "";
+  }).length;
+  const canSubmit = name.trim() && completeCount === groupMatches.length && groupMatches.length > 0;
+
+  function updateDraft(matchNum, side, value) {
+    setDrafts((current) => ({
+      ...current,
+      [matchNum]: {
+        ...current[matchNum],
+        [side]: value,
+      },
+    }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    await runAction(
+      () =>
+        fetch(`${API_URL}/api/participants/manual`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            name: name.trim(),
+            predictions: groupMatches.map((match) => ({
+              match_num: match.match_num,
+              home_goals: Number(drafts[match.match_num].home),
+              away_goals: Number(drafts[match.match_num].away),
+            })),
+          }),
+        }),
+      "Participant manuel créé.",
+    );
+    setName("");
+    setDrafts({});
+    setOpen(false);
+  }
+
+  return (
+    <section className="panel manual-panel">
+      <div className="panel-head">
+        <div>
+          <h2>Créer un participant manuel</h2>
+          <p>
+            Ajout sans fichier XLSX, avec les groupes d'abord. {completeCount}/{groupMatches.length} matchs renseignés
+          </p>
+        </div>
+        <button onClick={() => setOpen((value) => !value)}>
+          {open ? "Replier" : "Ajouter un participant"}
+        </button>
+      </div>
+      {open && (
+        <form className="manual-form" onSubmit={submit}>
+          <label>
+            Nom
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <div className="manual-groups">
+            {orderedGroups.map((group) => (
+              <section className="manual-group" key={group}>
+                <h3>Groupe {group}</h3>
+                <div className="manual-matches">
+                  {grouped[group].map((match) => {
+                    const draft = drafts[match.match_num] || {};
+                    return (
+                      <div className="manual-match" key={match.match_num}>
+                        <span>{match.home_team}</span>
+                        <div className="score-edit compact">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={draft.home ?? ""}
+                            onChange={(event) => updateDraft(match.match_num, "home", event.target.value)}
+                          />
+                          <span>-</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={draft.away ?? ""}
+                            onChange={(event) => updateDraft(match.match_num, "away", event.target.value)}
+                          />
+                        </div>
+                        <span className="away">{match.away_team}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="manual-actions">
+            <button disabled={!canSubmit}>Créer le participant</button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }
@@ -986,6 +1103,8 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
       nextDrafts[row.match_num] = {
         home: row.predicted_home,
         away: row.predicted_away,
+        homePenalties: row.predicted_home_penalties,
+        awayPenalties: row.predicted_away_penalties,
       };
     }
     setDrafts(nextDrafts);
@@ -1003,6 +1122,8 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
 
   async function saveDraft(matchNum) {
     const draft = drafts[matchNum];
+    const row = predictions.find((item) => item.match_num === matchNum);
+    const needsPenalties = rowNeedsPredictionPenalties(draft, row);
     setSavingMatch(matchNum);
     try {
       const response = await fetch(`${API_URL}/api/predictions/${participant.id}/${matchNum}`, {
@@ -1011,7 +1132,56 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
         body: JSON.stringify({
           home_goals: Number(draft.home),
           away_goals: Number(draft.away),
+          home_penalties: needsPenalties ? Number(draft.homePenalties) : null,
+          away_penalties: needsPenalties ? Number(draft.awayPenalties) : null,
         }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Sauvegarde impossible.");
+      }
+      await onSaved();
+    } finally {
+      setSavingMatch(null);
+    }
+  }
+
+  async function saveKnockoutDrafts() {
+    const knockoutPredictions = predictions
+      .filter((row) => row.stage !== "group")
+      .map((row) => ({ row, draft: drafts[row.match_num] || {} }))
+      .filter(({ row, draft }) => {
+        if (draft.home === "" || draft.home === null || draft.home === undefined || draft.away === "" || draft.away === null || draft.away === undefined) {
+          return false;
+        }
+        if (!rowNeedsPredictionPenalties(draft, row)) return true;
+        return (
+          draft.homePenalties !== "" &&
+          draft.homePenalties !== null &&
+          draft.homePenalties !== undefined &&
+          draft.awayPenalties !== "" &&
+          draft.awayPenalties !== null &&
+          draft.awayPenalties !== undefined &&
+          Number(draft.homePenalties) !== Number(draft.awayPenalties)
+        );
+      })
+      .map(({ row, draft }) => {
+        const needsPenalties = rowNeedsPredictionPenalties(draft, row);
+        return {
+          match_num: row.match_num,
+          home_goals: Number(draft.home),
+          away_goals: Number(draft.away),
+          home_penalties: needsPenalties ? Number(draft.homePenalties) : null,
+          away_penalties: needsPenalties ? Number(draft.awayPenalties) : null,
+        };
+      });
+    if (knockoutPredictions.length === 0) return;
+    setSavingMatch("bulk-knockout");
+    try {
+      const response = await fetch(`${API_URL}/api/participants/${participant.id}/predictions/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ predictions: knockoutPredictions }),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -1040,6 +1210,18 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
         </div>
 
         <ScoringRules rules={scoringRules} />
+
+        {editable && (
+          <div className="prediction-admin-actions">
+            <button
+              className="secondary"
+              disabled={savingMatch === "bulk-knockout"}
+              onClick={saveKnockoutDrafts}
+            >
+              Calculer et enregistrer les phases finales
+            </button>
+          </div>
+        )}
 
         <div className="prediction-filter" aria-label="Filtrer les pronostics">
           <button
@@ -1074,9 +1256,31 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
                   const draft = drafts[row.match_num] || {
                     home: row.predicted_home,
                     away: row.predicted_away,
+                    homePenalties: row.predicted_home_penalties,
+                    awayPenalties: row.predicted_away_penalties,
                   };
+                  const needsPenalties = rowNeedsPredictionPenalties(draft, row);
+                  const scoreInvalid =
+                    draft.home === "" ||
+                    draft.home === null ||
+                    draft.home === undefined ||
+                    draft.away === "" ||
+                    draft.away === null ||
+                    draft.away === undefined;
+                  const penaltiesInvalid =
+                    needsPenalties &&
+                    (draft.homePenalties === "" ||
+                      draft.homePenalties === null ||
+                      draft.homePenalties === undefined ||
+                      draft.awayPenalties === "" ||
+                      draft.awayPenalties === null ||
+                      draft.awayPenalties === undefined ||
+                      Number(draft.homePenalties) === Number(draft.awayPenalties));
                   const changed =
-                    Number(draft.home) !== row.predicted_home || Number(draft.away) !== row.predicted_away;
+                    nullableNumber(draft.home) !== row.predicted_home ||
+                    nullableNumber(draft.away) !== row.predicted_away ||
+                    nullableNumber(draft.homePenalties) !== row.predicted_home_penalties ||
+                    nullableNumber(draft.awayPenalties) !== row.predicted_away_penalties;
 
                   return (
                     <article className="prediction-card" key={row.match_num}>
@@ -1087,20 +1291,43 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
                       <div className="prediction-match">
                         <span className="team-name">{predictedHomeTeam}</span>
                         {editable ? (
-                          <div className="score-edit compact">
-                            <input
-                              type="number"
-                              min="0"
-                              value={draft.home}
-                              onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
-                            />
-                            <span>-</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={draft.away}
-                              onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
-                            />
+                          <div className={`prediction-score-editor ${needsPenalties ? "with-penalties" : ""}`}>
+                            <div className="score-edit compact">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={draft.home ?? ""}
+                                onChange={(event) => updateDraft(row.match_num, "home", event.target.value)}
+                              />
+                              <span>-</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={draft.away ?? ""}
+                                onChange={(event) => updateDraft(row.match_num, "away", event.target.value)}
+                              />
+                            </div>
+                            {needsPenalties && (
+                              <div className="score-edit compact penalties">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={draft.homePenalties ?? ""}
+                                  onChange={(event) => updateDraft(row.match_num, "homePenalties", event.target.value)}
+                                />
+                                <span>tab</span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
+                                  value={draft.awayPenalties ?? ""}
+                                  onChange={(event) => updateDraft(row.match_num, "awayPenalties", event.target.value)}
+                                />
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <strong className="prediction-score">
@@ -1116,7 +1343,7 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
                         {editable && (
                           <button
                             className="small"
-                            disabled={!changed || savingMatch === row.match_num}
+                            disabled={scoreInvalid || !changed || penaltiesInvalid || savingMatch === row.match_num}
                             onClick={() => saveDraft(row.match_num)}
                           >
                             OK
@@ -1258,6 +1485,12 @@ function scoringRuleLabel(key) {
 function pointDetailLabel(detail) {
   if (!detail.team) return scoringRuleLabel(detail.key);
   return `${scoringRuleLabel(detail.key)} : ${detail.team}`;
+}
+
+function rowNeedsPredictionPenalties(draft, row) {
+  if (!row || row.stage === "group") return false;
+  if (draft.home === "" || draft.away === "" || draft.home === null || draft.away === null) return false;
+  return Number(draft.home) === Number(draft.away);
 }
 
 function formatPredictionScore(row) {
