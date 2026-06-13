@@ -401,9 +401,17 @@ function LeaderboardPanel({
     ? leaderboard.filter((row) => row.subset_enabled)
     : leaderboard;
   const subsetCount = leaderboard.filter((row) => row.subset_enabled).length;
-  const getRankLabel = (row, index) => (
-    index > 0 && row.points === visibleLeaderboard[index - 1].points ? "-" : index + 1
-  );
+  const rankLabels = visibleLeaderboard.map((row, index) => {
+    if (index > 0 && row.points === visibleLeaderboard[index - 1].points) {
+      return "-";
+    }
+
+    return visibleLeaderboard
+      .slice(0, index)
+      .filter((previousRow, previousIndex, previousRows) => (
+        previousIndex === 0 || previousRow.points !== previousRows[previousIndex - 1].points
+      )).length + 1;
+  });
 
   return (
     <section className="panel">
@@ -445,7 +453,7 @@ function LeaderboardPanel({
         <tbody>
           {visibleLeaderboard.map((row, index) => (
             <tr key={row.id} className="clickable" onClick={() => openParticipant(row)}>
-              <td>{getRankLabel(row, index)}</td>
+              <td>{rankLabels[index]}</td>
               <td>{row.name}</td>
               <td>{row.points}</td>
               <td>{row.predictions}</td>
