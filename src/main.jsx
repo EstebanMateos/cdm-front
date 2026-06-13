@@ -9,6 +9,7 @@ const API_URL =
     : window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
       ? `${window.location.protocol}//${window.location.hostname}:5050`
       : "";
+const LIVE_RESULT_STATUS_TYPES = new Set(["inprogress", "pause", "interrupted"]);
 
 function App() {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -400,6 +401,9 @@ function LeaderboardPanel({
     ? leaderboard.filter((row) => row.subset_enabled)
     : leaderboard;
   const subsetCount = leaderboard.filter((row) => row.subset_enabled).length;
+  const getRankLabel = (row, index) => (
+    index > 0 && row.points === visibleLeaderboard[index - 1].points ? "-" : index + 1
+  );
 
   return (
     <section className="panel">
@@ -441,7 +445,7 @@ function LeaderboardPanel({
         <tbody>
           {visibleLeaderboard.map((row, index) => (
             <tr key={row.id} className="clickable" onClick={() => openParticipant(row)}>
-              <td>{index + 1}</td>
+              <td>{getRankLabel(row, index)}</td>
               <td>{row.name}</td>
               <td>{row.points}</td>
               <td>{row.predictions}</td>
@@ -698,7 +702,8 @@ function BracketCard({ authHeaders, editable = false, editorSide = "bottom", mat
   const awayWins = hasResult && resultWinner(match) === "away";
 
   return (
-    <article className={`bracket-card editor-${editorSide}`} style={{ top }}>
+    <article className={`bracket-card editor-${editorSide} ${isMatchInProgress(match) ? "in-progress" : ""}`} style={{ top }}>
+      <LiveMatchIcon match={match} />
       <div className={`bracket-side ${homeWins ? "winner" : ""}`}>
         <span>{match.home_team}</span>
         <strong>{hasResult ? resultSideLabel(match, "home") : ""}</strong>
@@ -808,7 +813,8 @@ function GroupCard({ authHeaders, editable = false, groupCode, matches, runActio
 
 function MatchRow({ authHeaders, editable = false, match, runAction }) {
   return (
-    <div className={`match-row ${editable ? "editable" : ""}`}>
+    <div className={`match-row ${editable ? "editable" : ""} ${isMatchInProgress(match) ? "in-progress" : ""}`}>
+      <LiveMatchIcon match={match} />
       <span className="team">{match.home_team}</span>
       {editable ? (
         <ResultEditor authHeaders={authHeaders} match={match} runAction={runAction} />
@@ -818,6 +824,19 @@ function MatchRow({ authHeaders, editable = false, match, runAction }) {
       <span className="team away">{match.away_team}</span>
     </div>
   );
+}
+
+function LiveMatchIcon({ match }) {
+  if (!isMatchInProgress(match)) return null;
+  return (
+    <span className="live-match-icon" title="Match en cours" aria-label="Match en cours">
+      ●
+    </span>
+  );
+}
+
+function isMatchInProgress(match) {
+  return LIVE_RESULT_STATUS_TYPES.has(String(match.result_status_type || "").toLowerCase());
 }
 
 function ResultEditor({ authHeaders, match, runAction }) {

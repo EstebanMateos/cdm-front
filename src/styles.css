@@ -473,6 +473,7 @@ th {
 }
 
 .match-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr);
   align-items: center;
@@ -480,6 +481,14 @@ th {
   padding: 9px 10px;
   background: rgb(6 18 41 / 80%);
   font-size: 13px;
+}
+
+.match-row.in-progress {
+  background: linear-gradient(90deg, rgb(225 61 79 / 18%), rgb(6 18 41 / 80%) 38%);
+}
+
+.match-row.in-progress .team:not(.away) {
+  padding-left: 16px;
 }
 
 .match-row.editable {
@@ -493,6 +502,23 @@ th {
   text-align: center;
   white-space: nowrap;
   background: rgb(255 255 255 / 10%);
+}
+
+.live-match-icon {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgb(255 255 255 / 32%);
+  border-radius: 999px;
+  color: var(--red-france);
+  font-size: 9px;
+  line-height: 1;
+  background: rgb(6 18 41 / 90%);
+  box-shadow: 0 0 0 3px rgb(225 61 79 / 14%);
 }
 
 .result-editor {
@@ -619,6 +645,15 @@ th {
   border-radius: 8px;
   background: rgb(10 31 70 / 96%);
   box-shadow: 0 10px 24px rgb(0 0 0 / 18%);
+}
+
+.bracket-card.in-progress {
+  border-color: rgb(225 61 79 / 50%);
+  background: linear-gradient(135deg, rgb(225 61 79 / 18%), rgb(10 31 70 / 96%) 42%);
+}
+
+.bracket-card.in-progress .bracket-side:first-of-type {
+  padding-left: 28px;
 }
 
 .bracket-card .result-editor {
