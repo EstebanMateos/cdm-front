@@ -775,68 +775,6 @@ th {
   text-align: center;
 }
 
-.manual-form {
-  display: grid;
-  gap: 14px;
-}
-
-.manual-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.manual-group {
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
-  background: rgb(7 18 42 / 70%);
-}
-
-.manual-group h3 {
-  margin: 0;
-  padding: 9px 10px;
-  border-bottom: 1px solid rgb(255 255 255 / 10%);
-  color: var(--gold);
-  font-size: 13px;
-}
-
-.manual-matches {
-  display: grid;
-}
-
-.manual-match {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  min-height: 42px;
-  padding: 7px 10px;
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.manual-match:last-child {
-  border-bottom: 0;
-}
-
-.manual-match span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.manual-match .away {
-  text-align: right;
-}
-
-.manual-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .prediction-sections {
   display: grid;
   gap: 18px;
@@ -1115,10 +1053,6 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .manual-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .scoring-groups {
     grid-template-columns: 1fr;
   }
@@ -1160,7 +1094,6 @@ th {
   .grid,
   .form,
   .group-grid,
-  .manual-groups,
   .prediction-grid {
     grid-template-columns: 1fr;
   }

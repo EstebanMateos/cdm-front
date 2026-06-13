@@ -30,6 +30,7 @@ function App() {
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
   async function refresh() {
+    await fetch(`${API_URL}/api/results/refresh`, { method: "POST" }).catch(() => null);
     const [leaderboardRes, participantsRes, matchesRes, scoringRes] = await Promise.all([
       fetch(`${API_URL}/api/leaderboard`),
       fetch(`${API_URL}/api/participants`),
@@ -340,8 +341,6 @@ function AdminPage({
         </form>
       </section>
 
-      <ManualParticipantForm authHeaders={authHeaders} matches={matches} runAction={runAction} />
-
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <LeaderboardPanel
         leaderboard={leaderboard}
@@ -384,121 +383,6 @@ function LoginPanel({ busy, loginAdmin }) {
         </label>
         <button disabled={busy}>Se connecter</button>
       </form>
-    </section>
-  );
-}
-
-function ManualParticipantForm({ authHeaders, matches, runAction }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [drafts, setDrafts] = useState({});
-  const groupMatches = matches.filter((match) => match.stage === "group");
-  const grouped = groupMatches.reduce((acc, match) => {
-    const group = match.group_code || "?";
-    acc[group] = acc[group] || [];
-    acc[group].push(match);
-    return acc;
-  }, {});
-  const orderedGroups = Object.keys(grouped).sort();
-  const completeCount = groupMatches.filter((match) => {
-    const draft = drafts[match.match_num] || {};
-    return draft.home !== undefined && draft.home !== "" && draft.away !== undefined && draft.away !== "";
-  }).length;
-  const canSubmit = name.trim() && completeCount === groupMatches.length && groupMatches.length > 0;
-
-  function updateDraft(matchNum, side, value) {
-    setDrafts((current) => ({
-      ...current,
-      [matchNum]: {
-        ...current[matchNum],
-        [side]: value,
-      },
-    }));
-  }
-
-  async function submit(event) {
-    event.preventDefault();
-    if (!canSubmit) return;
-    await runAction(
-      () =>
-        fetch(`${API_URL}/api/participants/manual`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({
-            name: name.trim(),
-            predictions: groupMatches.map((match) => ({
-              match_num: match.match_num,
-              home_goals: Number(drafts[match.match_num].home),
-              away_goals: Number(drafts[match.match_num].away),
-            })),
-          }),
-        }),
-      "Participant manuel créé.",
-    );
-    setName("");
-    setDrafts({});
-    setOpen(false);
-  }
-
-  return (
-    <section className="panel manual-panel">
-      <div className="panel-head">
-        <div>
-          <h2>Créer un participant manuel</h2>
-          <p>
-            Ajout sans fichier XLSX, avec les groupes d'abord. {completeCount}/{groupMatches.length} matchs renseignés
-          </p>
-        </div>
-        <button onClick={() => setOpen((value) => !value)}>
-          {open ? "Replier" : "Ajouter un participant"}
-        </button>
-      </div>
-      {open && (
-        <form className="manual-form" onSubmit={submit}>
-          <label>
-            Nom
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <div className="manual-groups">
-            {orderedGroups.map((group) => (
-              <section className="manual-group" key={group}>
-                <h3>Groupe {group}</h3>
-                <div className="manual-matches">
-                  {grouped[group].map((match) => {
-                    const draft = drafts[match.match_num] || {};
-                    return (
-                      <div className="manual-match" key={match.match_num}>
-                        <span>{match.home_team}</span>
-                        <div className="score-edit compact">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={draft.home ?? ""}
-                            onChange={(event) => updateDraft(match.match_num, "home", event.target.value)}
-                          />
-                          <span>-</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={draft.away ?? ""}
-                            onChange={(event) => updateDraft(match.match_num, "away", event.target.value)}
-                          />
-                        </div>
-                        <span className="away">{match.away_team}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-          <div className="manual-actions">
-            <button disabled={!canSubmit}>Créer le participant</button>
-          </div>
-        </form>
-      )}
     </section>
   );
 }
