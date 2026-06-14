@@ -10,6 +10,8 @@ const API_URL =
       ? `${window.location.protocol}//${window.location.hostname}:5050`
       : "";
 const LIVE_RESULT_STATUS_TYPES = new Set(["inprogress", "pause", "interrupted"]);
+const FR_TIME_ZONE = "Europe/Paris";
+const MATCH_DAY_START_HOUR = 6;
 
 function App() {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -612,6 +614,8 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
 
   return (
     <>
+      <TodayMatchesPanel matches={matches} />
+
       <section className="panel">
         <h2>Groupes</h2>
         <div className="group-grid">
@@ -637,6 +641,48 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
         )}
       </section>
     </>
+  );
+}
+
+function TodayMatchesPanel({ matches }) {
+  const window = franceMatchDayWindow();
+  const todayMatches = matches
+    .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
+    .filter(({ kickoff }) => kickoff && kickoff.localTimestamp >= window.start && kickoff.localTimestamp < window.end)
+    .sort((a, b) => a.kickoff.localTimestamp - b.kickoff.localTimestamp);
+
+  return (
+    <section className="panel today-matches-panel">
+      <div className="panel-head">
+        <h2>Match du jour</h2>
+      </div>
+
+      {todayMatches.length === 0 ? (
+        <p className="empty">Aucun match prévu.</p>
+      ) : (
+        <div className="today-matches-grid">
+          {todayMatches.map(({ match, kickoff }) => (
+            <article className={`today-match-card ${isMatchInProgress(match) ? "in-progress" : ""}`} key={match.match_num}>
+              <LiveMatchIcon match={match} />
+              <div className="today-match-meta">
+                <span>Match {match.match_num}</span>
+                <strong>{kickoff.timeLabel}</strong>
+              </div>
+              <div className="today-match-teams">
+                <span>{match.home_team}</span>
+                <strong>{formatResult(match)}</strong>
+                <span>{match.away_team}</span>
+              </div>
+              <div className="today-match-footer">
+                <span>{stageLabel(match.stage)}</span>
+                <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
+              </div>
+              {match.venue && <p className="today-match-venue">{match.venue}</p>}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -845,6 +891,18 @@ function LiveMatchIcon({ match }) {
 
 function isMatchInProgress(match) {
   return LIVE_RESULT_STATUS_TYPES.has(String(match.result_status_type || "").toLowerCase());
+}
+
+function matchStatusLabel(match) {
+  if (isMatchInProgress(match)) return "En cours";
+  if (match.result_home_goals !== null) return "Terminé";
+  return "À venir";
+}
+
+function matchStatusClass(match) {
+  if (isMatchInProgress(match)) return "live";
+  if (match.result_home_goals !== null) return "done";
+  return "upcoming";
 }
 
 function ResultEditor({ authHeaders, match, runAction }) {
@@ -1420,6 +1478,89 @@ function formatPredictionResult(row) {
     return `${score} tab ${row.result_home_penalties} - ${row.result_away_penalties}`;
   }
   return score;
+}
+
+function matchKickoffInfo(match) {
+  if (Number.isFinite(Number(match.calendar_timestamp))) {
+    const date = new Date(Number(match.calendar_timestamp) * 1000);
+    const local = franceLocalParts(date);
+    if (local) {
+      return {
+        localTimestamp: localTimestamp(local),
+        timeLabel: `${String(local.hour).padStart(2, "0")}:${String(local.minute).padStart(2, "0")}`,
+      };
+    }
+  }
+
+  const kickoff = String(match.kickoff || "").trim();
+  if (!kickoff) return null;
+
+  const local = hasExplicitTimezone(kickoff)
+    ? franceLocalParts(new Date(kickoff))
+    : parseFranceLocalKickoff(kickoff);
+  if (!local) return null;
+
+  return {
+    localTimestamp: localTimestamp(local),
+    timeLabel: `${String(local.hour).padStart(2, "0")}:${String(local.minute).padStart(2, "0")}`,
+  };
+}
+
+function franceMatchDayWindow(date = new Date()) {
+  const now = franceLocalParts(date);
+  const todayNoon = localTimestamp({ ...now, hour: MATCH_DAY_START_HOUR, minute: 0 });
+  const start = localTimestamp(now) < todayNoon
+    ? addLocalDays(todayNoon, -1)
+    : todayNoon;
+  return { start, end: addLocalDays(start, 1) };
+}
+
+function franceLocalParts(date) {
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("fr-FR", {
+      timeZone: FR_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date).map((part) => [part.type, part.value]),
+  );
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
+}
+
+function parseFranceLocalKickoff(value) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T| )(\d{2}):(\d{2})/);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+  };
+}
+
+function hasExplicitTimezone(value) {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+}
+
+function localTimestamp({ year, month, day, hour = 0, minute = 0 }) {
+  return Date.UTC(year, month - 1, day, hour, minute);
+}
+
+function addLocalDays(timestamp, days) {
+  const date = new Date(timestamp);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.getTime();
 }
 
 function stageLabel(stage) {

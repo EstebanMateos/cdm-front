@@ -421,6 +421,114 @@ th {
   text-align: center;
 }
 
+
+.today-matches-panel {
+  overflow: hidden;
+}
+
+.today-matches-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.today-match-card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 6%));
+}
+
+.today-match-card.in-progress {
+  border-color: rgb(225 61 79 / 52%);
+  background: linear-gradient(135deg, rgb(225 61 79 / 18%), rgb(255 255 255 / 7%) 44%);
+}
+
+.today-match-card.in-progress .today-match-meta {
+  padding-left: 18px;
+}
+
+.today-match-meta,
+.today-match-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.today-match-meta strong {
+  color: white;
+  font-size: 15px;
+}
+
+.today-match-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.today-match-teams span {
+  min-width: 0;
+  overflow: hidden;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-match-teams span:last-child {
+  text-align: right;
+}
+
+.today-match-teams strong {
+  min-width: 54px;
+  border-radius: 7px;
+  padding: 6px 9px;
+  color: white;
+  text-align: center;
+  white-space: nowrap;
+  background: rgb(255 255 255 / 10%);
+}
+
+.today-match-footer strong {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.today-match-footer strong.live {
+  color: white;
+  background: rgb(225 61 79 / 65%);
+}
+
+.today-match-footer strong.done {
+  color: #061229;
+  background: var(--gold);
+}
+
+.today-match-footer strong.upcoming {
+  color: #dfe8ff;
+  background: rgb(255 255 255 / 10%);
+}
+
+.today-match-venue {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .group-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1129,6 +1237,7 @@ th {
   .grid,
   .form,
   .group-grid,
+  .today-matches-grid,
   .prediction-grid {
     grid-template-columns: 1fr;
   }
