@@ -894,7 +894,12 @@ function isMatchInProgress(match) {
 }
 
 function matchStatusLabel(match) {
-  if (isMatchInProgress(match)) return "En cours";
+  if (isMatchInProgress(match)) {
+    if (Number.isFinite(Number(match.result_live_minute))) {
+      return `${Number(match.result_live_minute)}'`;
+    }
+    return match.result_status_description || "En cours";
+  }
   if (match.result_home_goals !== null) return "Terminé";
   return "À venir";
 }
