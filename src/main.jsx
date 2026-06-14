@@ -648,7 +648,7 @@ function TodayMatchesPanel({ matches }) {
   const window = franceMatchDayWindow();
   const todayMatches = matches
     .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
-    .filter(({ kickoff }) => kickoff && kickoff.localTimestamp >= window.start && kickoff.localTimestamp < window.end)
+    .filter(({ kickoff }) => kickoff && kickoff.localTimestamp > window.start && kickoff.localTimestamp < window.end)
     .sort((a, b) => a.kickoff.localTimestamp - b.kickoff.localTimestamp);
 
   return (
