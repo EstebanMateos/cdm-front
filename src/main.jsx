@@ -25,6 +25,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [sofascoreStatus, setSofascoreStatus] = useState(null);
   const [leaderboardMode, setLeaderboardMode] = useState("all");
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("cdm_admin_token") || "");
   const [adminUser, setAdminUser] = useState(() => localStorage.getItem("cdm_admin_user") || "");
@@ -178,6 +179,28 @@ function App() {
     );
   }
 
+  async function testSofascore() {
+    setBusy(true);
+    setMessage("");
+    setSofascoreStatus(null);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/sofascore/test`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Test SofaScore impossible.");
+      }
+      setSofascoreStatus(payload);
+      setMessage(payload.ok ? "SofaScore répond correctement." : "SofaScore répond partiellement.");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const completedMatches = useMemo(
     () => matches.filter((match) => match.result_home_goals !== null).length,
     [matches],
@@ -239,6 +262,8 @@ function App() {
           setFile={setFile}
           setLeaderboardMode={setLeaderboardMode}
           setName={setName}
+          sofascoreStatus={sofascoreStatus}
+          testSofascore={testSofascore}
           updateParticipantSubset={updateParticipantSubset}
           authHeaders={authHeaders}
         />
@@ -256,6 +281,7 @@ function App() {
         <ParticipantPanel
           participant={selectedParticipant}
           predictions={participantPredictions}
+          matches={matches}
           scoringRules={scoringRules}
           totalPoints={participantScore.total_points}
           editable={isAdminPage && Boolean(adminToken)}
@@ -307,6 +333,8 @@ function AdminPage({
   setLeaderboardMode,
   setFile,
   setName,
+  sofascoreStatus,
+  testSofascore,
   updateParticipantSubset,
 }) {
   if (!adminToken) {
@@ -345,6 +373,7 @@ function AdminPage({
       </section>
 
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
+      <SofascorePanel busy={busy} status={sofascoreStatus} testSofascore={testSofascore} />
       <LeaderboardPanel
         leaderboard={leaderboard}
         leaderboardMode={leaderboardMode}
@@ -356,6 +385,46 @@ function AdminPage({
       />
       <MatchesPanel authHeaders={authHeaders} editable matches={matches} runAction={runAction} />
     </>
+  );
+}
+
+function SofascorePanel({ busy, status, testSofascore }) {
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <div>
+          <h2>SofaScore</h2>
+          <p>Test de connexion sans modifier les scores.</p>
+        </div>
+        <button className="secondary" disabled={busy} onClick={testSofascore}>
+          Tester
+        </button>
+      </div>
+
+      {status && (
+        <div className={`provider-status ${status.ok ? "ok" : "warning"}`}>
+          <div className="provider-status-head">
+            <strong>{status.ok ? "Accès OK" : "Accès partiel"}</strong>
+            <span>
+              Tournament {status.tournament_id} · season {status.season_id}
+            </span>
+          </div>
+          <div className="provider-checks">
+            {(status.checks || []).map((check) => (
+              <div className="provider-check" key={check.name}>
+                <span className={check.ok ? "status-ok" : "status-error"}>
+                  {check.ok ? "OK" : "Erreur"}
+                </span>
+                <strong>{sofascoreCheckLabel(check.name)}</strong>
+                <span>
+                  {sofascoreCheckSummary(check)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -645,11 +714,7 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
 }
 
 function TodayMatchesPanel({ matches }) {
-  const window = franceMatchDayWindow();
-  const todayMatches = matches
-    .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
-    .filter(({ kickoff }) => kickoff && kickoff.localTimestamp > window.start && kickoff.localTimestamp < window.end)
-    .sort((a, b) => a.kickoff.localTimestamp - b.kickoff.localTimestamp);
+  const todayMatches = todayMatchEntries(matches);
 
   return (
     <section className="panel today-matches-panel">
@@ -910,6 +975,26 @@ function matchStatusClass(match) {
   return "upcoming";
 }
 
+function sofascoreCheckLabel(name) {
+  return {
+    seasons: "Saisons",
+    last_page: "Derniers matchs",
+    next_page: "Prochains matchs",
+    calendar: "Calendrier local",
+    internal_matches: "Matchs internes",
+    full_fetch: "Fetch complet",
+    mapping: "Mapping résultats",
+  }[name] || name;
+}
+
+function sofascoreCheckSummary(check) {
+  if (!check.ok) return check.error || check.summary || "Erreur";
+  if (check.summary) {
+    return check.duration_ms ? `${check.summary} · ${check.duration_ms} ms` : check.summary;
+  }
+  return `${check.events ?? 0} event(s) · ${check.duration_ms} ms`;
+}
+
 function ResultEditor({ authHeaders, match, runAction }) {
   const hasResult = match.result_home_goals !== null;
   const [editing, setEditing] = useState(false);
@@ -1062,7 +1147,7 @@ function computeGroupStandings(matches) {
     );
 }
 
-function ParticipantPanel({ authHeaders, editable, participant, predictions, scoringRules, totalPoints, onClose, onSaved }) {
+function ParticipantPanel({ authHeaders, editable, matches, participant, predictions, scoringRules, totalPoints, onClose, onSaved }) {
   const [drafts, setDrafts] = useState({});
   const [savingMatch, setSavingMatch] = useState(null);
   const [stageFilter, setStageFilter] = useState("all");
@@ -1184,6 +1269,8 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
         </div>
 
         <ScoringRules rules={scoringRules} />
+
+        <ParticipantRecentPredictions matches={matches} predictions={predictions} scoringRules={scoringRules} />
 
         {editable && (
           <div className="prediction-admin-actions">
@@ -1337,6 +1424,71 @@ function ParticipantPanel({ authHeaders, editable, participant, predictions, sco
   );
 }
 
+function ParticipantRecentPredictions({ matches, predictions, scoringRules }) {
+  const predictionByMatch = new Map(predictions.map((row) => [row.match_num, row]));
+  const daySections = [
+    {
+      key: "today",
+      title: "Pronostics du jour",
+      empty: "Aucun pronostic sur les matchs du jour.",
+      entries: dayMatchEntries(matches),
+    },
+    {
+      key: "yesterday",
+      title: "Pronostics de la veille",
+      empty: "Aucun pronostic sur les matchs de la veille.",
+      entries: dayMatchEntries(matches, -1),
+    },
+  ].map((section) => ({
+    ...section,
+    predictions: section.entries
+      .map(({ match, kickoff }) => ({ match, kickoff, row: predictionByMatch.get(match.match_num) }))
+      .filter(({ row }) => row),
+  }));
+
+  return (
+    <section className="today-predictions">
+      {daySections.map((section) => (
+        <div className="daily-prediction-section" key={section.key}>
+          <div className="prediction-section-head">
+            <h3>{section.title}</h3>
+            <span>{section.predictions.length} match{section.predictions.length > 1 ? "s" : ""}</span>
+          </div>
+
+          {section.predictions.length === 0 ? (
+            <p className="empty">{section.empty}</p>
+          ) : (
+            <div className="today-predictions-grid">
+              {section.predictions.map(({ match, kickoff, row }) => (
+                <article className="today-prediction-card" key={match.match_num}>
+                  <div className="prediction-meta">
+                    <span>Match {match.match_num}</span>
+                    <strong>{kickoff.timeLabel}</strong>
+                  </div>
+                  <div className="prediction-match">
+                    <span className="team-name">{row.predicted_home_team || match.home_team}</span>
+                    <strong className="prediction-score">{formatPredictionScore(row)}</strong>
+                    <span className="team-name away">{row.predicted_away_team || match.away_team}</span>
+                  </div>
+                  <div className="prediction-footer">
+                    <span>Résultat : {formatPredictionResult(row)}</span>
+                    <strong>{row.points} pts</strong>
+                  </div>
+                  <div className="today-prediction-status">
+                    <span>{stageLabel(match.stage)}</span>
+                    <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
+                  </div>
+                  <PredictionPointsBreakdown row={row} scoringRules={scoringRules} />
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function PredictionPointsBreakdown({ row, scoringRules }) {
   const details = row.point_details || [];
   if (details.length === 0 && row.result_home === null) return null;
@@ -1362,7 +1514,8 @@ function ScoringRules({ rules }) {
   if (groups.length === 0) return null;
 
   return (
-    <section className="scoring-rules">
+    <details className="scoring-rules">
+      <summary className="scoring-rules-summary">Barème</summary>
       <div className="scoring-rules-head">
         <h3>Barème</h3>
         <p>
@@ -1384,7 +1537,7 @@ function ScoringRules({ rules }) {
           </div>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -1485,6 +1638,18 @@ function formatPredictionResult(row) {
   return score;
 }
 
+function todayMatchEntries(matches) {
+  return dayMatchEntries(matches);
+}
+
+function dayMatchEntries(matches, dayOffset = 0) {
+  const window = franceMatchDayWindow(new Date(), dayOffset);
+  return matches
+    .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
+    .filter(({ kickoff }) => kickoff && kickoff.localTimestamp > window.start && kickoff.localTimestamp < window.end)
+    .sort((a, b) => a.kickoff.localTimestamp - b.kickoff.localTimestamp);
+}
+
 function matchKickoffInfo(match) {
   if (Number.isFinite(Number(match.calendar_timestamp))) {
     const date = new Date(Number(match.calendar_timestamp) * 1000);
@@ -1511,13 +1676,14 @@ function matchKickoffInfo(match) {
   };
 }
 
-function franceMatchDayWindow(date = new Date()) {
+function franceMatchDayWindow(date = new Date(), dayOffset = 0) {
   const now = franceLocalParts(date);
   const todayNoon = localTimestamp({ ...now, hour: MATCH_DAY_START_HOUR, minute: 0 });
   const start = localTimestamp(now) < todayNoon
     ? addLocalDays(todayNoon, -1)
     : todayNoon;
-  return { start, end: addLocalDays(start, 1) };
+  const shiftedStart = addLocalDays(start, dayOffset);
+  return { start: shiftedStart, end: addLocalDays(shiftedStart, 1) };
 }
 
 function franceLocalParts(date) {

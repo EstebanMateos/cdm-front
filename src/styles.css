@@ -691,6 +691,65 @@ th {
   text-align: right;
 }
 
+.provider-status {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgb(255 255 255 / 7%);
+}
+
+.provider-status.ok {
+  border-color: rgb(85 214 132 / 46%);
+}
+
+.provider-status.warning {
+  border-color: rgb(242 193 78 / 52%);
+}
+
+.provider-status-head,
+.provider-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.provider-status-head span,
+.provider-check span:last-child {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.provider-checks {
+  display: grid;
+  gap: 8px;
+}
+
+.provider-check {
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  padding-top: 8px;
+}
+
+.provider-check strong {
+  flex: 1;
+}
+
+.status-ok,
+.status-error {
+  width: 56px;
+  font-weight: 800;
+}
+
+.status-ok {
+  color: #55d684;
+}
+
+.status-error {
+  color: var(--red-france);
+}
+
 .bracket-shell {
   display: grid;
   gap: 14px;
@@ -918,6 +977,64 @@ th {
   text-align: center;
 }
 
+.today-predictions {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.daily-prediction-section {
+  display: grid;
+  gap: 10px;
+}
+
+.today-predictions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.today-prediction-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgb(47 111 228 / 14%), rgb(255 255 255 / 7%));
+}
+
+.today-prediction-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.today-prediction-status strong {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.today-prediction-status strong.live {
+  color: white;
+  background: rgb(225 61 79 / 65%);
+}
+
+.today-prediction-status strong.done {
+  color: #061229;
+  background: var(--gold);
+}
+
+.today-prediction-status strong.upcoming {
+  color: #dfe8ff;
+  background: rgb(255 255 255 / 10%);
+}
+
 .prediction-sections {
   display: grid;
   gap: 18px;
@@ -969,6 +1086,18 @@ th {
   background:
     linear-gradient(135deg, rgb(255 255 255 / 10%), rgb(255 255 255 / 5%)),
     rgb(8 24 54 / 78%);
+}
+
+.scoring-rules-summary {
+  width: fit-content;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.scoring-rules-summary:hover {
+  color: var(--gold);
 }
 
 .scoring-rules h3 {
@@ -1238,6 +1367,7 @@ th {
   .form,
   .group-grid,
   .today-matches-grid,
+  .today-predictions-grid,
   .prediction-grid {
     grid-template-columns: 1fr;
   }
