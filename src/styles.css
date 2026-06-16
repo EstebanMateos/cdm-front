@@ -356,6 +356,74 @@ input[type="file"] {
   gap: 10px;
 }
 
+.points-history {
+  display: grid;
+  gap: 12px;
+}
+
+.points-history-chart {
+  width: 100%;
+  min-height: 260px;
+  overflow: visible;
+}
+
+.chart-grid-line {
+  stroke: rgb(255 255 255 / 10%);
+  stroke-width: 1;
+}
+
+.chart-axis-line {
+  stroke: rgb(255 255 255 / 24%);
+  stroke-width: 1.5;
+}
+
+.chart-axis-label {
+  fill: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-point {
+  stroke: rgb(6 18 41 / 90%);
+  stroke-width: 1.5;
+}
+
+.points-history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.points-history-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: #eaf0ff;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgb(255 255 255 / 7%);
+}
+
+.points-history-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.points-history-legend strong {
+  color: var(--gold);
+}
+
 .message {
   margin: 0 0 14px;
   border: 1px solid rgb(47 111 228 / 36%);

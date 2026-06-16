@@ -374,6 +374,7 @@ function AdminPage({
 
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <SofascorePanel busy={busy} status={sofascoreStatus} testSofascore={testSofascore} />
+      <PointsHistoryPanel authHeaders={authHeaders} leaderboardMode={leaderboardMode} />
       <LeaderboardPanel
         leaderboard={leaderboard}
         leaderboardMode={leaderboardMode}
@@ -385,6 +386,146 @@ function AdminPage({
       />
       <MatchesPanel authHeaders={authHeaders} editable matches={matches} runAction={runAction} />
     </>
+  );
+}
+
+function PointsHistoryPanel({ authHeaders, leaderboardMode }) {
+  const [history, setHistory] = useState({ days: [], series: [] });
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const visibleSeries = history.series
+    .filter((row) => leaderboardMode !== "subset" || row.subset_enabled)
+    .slice(0, 8);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
+    setError("");
+    fetch(`${API_URL}/api/admin/points-history`, {
+      headers: authHeaders(),
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Historique impossible à charger.");
+        return payload;
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        setHistory({
+          days: payload.days || [],
+          series: payload.series || [],
+        });
+        setStatus("ready");
+      })
+      .catch((fetchError) => {
+        if (cancelled) return;
+        setError(fetchError.message);
+        setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <section className="panel points-history-panel">
+      <div className="panel-head">
+        <div>
+          <h2>Évolution des points</h2>
+          <p>
+            Cumul jour par jour, limité aux {visibleSeries.length} premiers du classement affiché.
+          </p>
+        </div>
+      </div>
+
+      {status === "loading" && <p className="empty">Chargement de l'historique.</p>}
+      {status === "error" && <p className="empty">{error}</p>}
+      {status === "ready" && history.days.length === 0 && (
+        <p className="empty">Aucun résultat daté pour construire l'historique.</p>
+      )}
+      {status === "ready" && history.days.length > 0 && (
+        <PointsHistoryChart days={history.days} series={visibleSeries} />
+      )}
+    </section>
+  );
+}
+
+function PointsHistoryChart({ days, series }) {
+  const width = 760;
+  const height = 300;
+  const padding = { top: 18, right: 24, bottom: 36, left: 42 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const maxPoints = Math.max(1, ...series.flatMap((row) => row.points || [0]));
+  const ticks = Array.from({ length: 5 }, (_, index) => Math.round((maxPoints * index) / 4));
+  const colors = ["#f2c14e", "#55d684", "#7fb3ff", "#ff7a90", "#c59cff", "#70e1d4", "#ffb26b", "#d5e55c"];
+
+  function pointX(index) {
+    if (days.length <= 1) return padding.left + plotWidth / 2;
+    return padding.left + (index / (days.length - 1)) * plotWidth;
+  }
+
+  function pointY(value) {
+    return padding.top + plotHeight - (Number(value || 0) / maxPoints) * plotHeight;
+  }
+
+  function linePath(points) {
+    return points
+      .map((value, index) => `${index === 0 ? "M" : "L"} ${pointX(index).toFixed(2)} ${pointY(value).toFixed(2)}`)
+      .join(" ");
+  }
+
+  return (
+    <div className="points-history">
+      <svg className="points-history-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Évolution des points">
+        {ticks.map((tick) => {
+          const y = pointY(tick);
+          return (
+            <g key={tick}>
+              <line className="chart-grid-line" x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
+              <text className="chart-axis-label" x={padding.left - 10} y={y + 4} textAnchor="end">
+                {tick}
+              </text>
+            </g>
+          );
+        })}
+        {days.map((day, index) => {
+          if (days.length > 8 && index % Math.ceil(days.length / 8) !== 0 && index !== days.length - 1) return null;
+          const x = pointX(index);
+          return (
+            <text className="chart-axis-label" x={x} y={height - 10} textAnchor="middle" key={day.date}>
+              {day.label}
+            </text>
+          );
+        })}
+        <line className="chart-axis-line" x1={padding.left} x2={padding.left} y1={padding.top} y2={height - padding.bottom} />
+        <line className="chart-axis-line" x1={padding.left} x2={width - padding.right} y1={height - padding.bottom} y2={height - padding.bottom} />
+        {series.map((row, index) => (
+          <g key={row.id}>
+            <path className="chart-line" d={linePath(row.points || [])} stroke={colors[index % colors.length]} />
+            {(row.points || []).map((value, pointIndex) => (
+              <circle
+                className="chart-point"
+                cx={pointX(pointIndex)}
+                cy={pointY(value)}
+                fill={colors[index % colors.length]}
+                key={`${row.id}-${pointIndex}`}
+                r="3"
+              />
+            ))}
+          </g>
+        ))}
+      </svg>
+      <div className="points-history-legend">
+        {series.map((row, index) => (
+          <span key={row.id}>
+            <i style={{ background: colors[index % colors.length] }} />
+            {row.name}
+            <strong>{row.total} pts</strong>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
