@@ -374,7 +374,7 @@ function AdminPage({
 
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <SofascorePanel busy={busy} status={sofascoreStatus} testSofascore={testSofascore} />
-      <PointsHistoryPanel authHeaders={authHeaders} leaderboardMode={leaderboardMode} />
+      <PointsHistoryPanel authHeaders={authHeaders} />
       <LeaderboardPanel
         leaderboard={leaderboard}
         leaderboardMode={leaderboardMode}
@@ -389,13 +389,11 @@ function AdminPage({
   );
 }
 
-function PointsHistoryPanel({ authHeaders, leaderboardMode }) {
+function PointsHistoryPanel({ authHeaders }) {
   const [history, setHistory] = useState({ days: [], series: [] });
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
-  const visibleSeries = history.series
-    .filter((row) => leaderboardMode !== "subset" || row.subset_enabled)
-    .slice(0, 8);
+  const visibleSeries = history.series;
 
   useEffect(() => {
     let cancelled = false;
@@ -433,7 +431,7 @@ function PointsHistoryPanel({ authHeaders, leaderboardMode }) {
         <div>
           <h2>Évolution des points</h2>
           <p>
-            Cumul jour par jour, limité aux {visibleSeries.length} premiers du classement affiché.
+            Cumul jour par jour pour tous les participants du classement affiché.
           </p>
         </div>
       </div>
