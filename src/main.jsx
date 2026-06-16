@@ -393,7 +393,16 @@ function PointsHistoryPanel({ authHeaders }) {
   const [history, setHistory] = useState({ days: [], series: [] });
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
-  const visibleSeries = history.series;
+  const [hiddenSeriesIds, setHiddenSeriesIds] = useState([]);
+  const visibleSeries = history.series.filter((row) => !hiddenSeriesIds.includes(row.id));
+
+  function toggleSeries(seriesId) {
+    setHiddenSeriesIds((current) =>
+      current.includes(seriesId)
+        ? current.filter((id) => id !== seriesId)
+        : [...current, seriesId],
+    );
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -413,6 +422,7 @@ function PointsHistoryPanel({ authHeaders }) {
           days: payload.days || [],
           series: payload.series || [],
         });
+        setHiddenSeriesIds([]);
         setStatus("ready");
       })
       .catch((fetchError) => {
@@ -442,16 +452,22 @@ function PointsHistoryPanel({ authHeaders }) {
         <p className="empty">Aucun résultat daté pour construire l'historique.</p>
       )}
       {status === "ready" && history.days.length > 0 && (
-        <PointsHistoryChart days={history.days} series={visibleSeries} />
+        <PointsHistoryChart
+          days={history.days}
+          series={visibleSeries}
+          allSeries={history.series}
+          hiddenSeriesIds={hiddenSeriesIds}
+          onToggleSeries={toggleSeries}
+        />
       )}
     </section>
   );
 }
 
-function PointsHistoryChart({ days, series }) {
+function PointsHistoryChart({ days, series, allSeries, hiddenSeriesIds, onToggleSeries }) {
   const width = 760;
   const height = 300;
-  const padding = { top: 18, right: 24, bottom: 36, left: 42 };
+  const padding = { top: 18, right: 84, bottom: 36, left: 42 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const maxPoints = Math.max(1, ...series.flatMap((row) => row.points || [0]));
@@ -471,6 +487,15 @@ function PointsHistoryChart({ days, series }) {
     return points
       .map((value, index) => `${index === 0 ? "M" : "L"} ${pointX(index).toFixed(2)} ${pointY(value).toFixed(2)}`)
       .join(" ");
+  }
+
+  function lastPoint(points) {
+    if (!points || points.length === 0) return null;
+    const index = points.length - 1;
+    return {
+      x: pointX(index),
+      y: pointY(points[index]),
+    };
   }
 
   return (
@@ -511,17 +536,47 @@ function PointsHistoryChart({ days, series }) {
                 r="3"
               />
             ))}
+            {lastPoint(row.points || []) && (
+              <g>
+                <rect
+                  className="chart-end-label-bg"
+                  x={Math.min(width - padding.right + 8, lastPoint(row.points || []).x + 8)}
+                  y={Math.max(8, lastPoint(row.points || []).y - 10)}
+                  rx="5"
+                  ry="5"
+                  width={Math.min(160, Math.max(48, row.name.length * 7 + 18))}
+                  height="18"
+                  fill={colors[index % colors.length]}
+                />
+                <text
+                  className="chart-end-label"
+                  x={Math.min(width - padding.right + 12, lastPoint(row.points || []).x + 12)}
+                  y={Math.max(21, lastPoint(row.points || []).y + 3)}
+                >
+                  {row.name}
+                </text>
+              </g>
+            )}
           </g>
         ))}
       </svg>
       <div className="points-history-legend">
-        {series.map((row, index) => (
-          <span key={row.id}>
+        {allSeries.map((row, index) => {
+          const hidden = hiddenSeriesIds.includes(row.id);
+          return (
+          <button
+            className={`history-legend-item ${hidden ? "hidden" : ""}`}
+            key={row.id}
+            type="button"
+            onClick={() => onToggleSeries(row.id)}
+            aria-pressed={!hidden}
+          >
             <i style={{ background: colors[index % colors.length] }} />
             {row.name}
             <strong>{row.total} pts</strong>
-          </span>
-        ))}
+          </button>
+          );
+        })}
       </div>
     </div>
   );

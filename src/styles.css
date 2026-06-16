@@ -395,33 +395,60 @@ input[type="file"] {
   stroke-width: 1.5;
 }
 
+.chart-end-label-bg {
+  opacity: 0.18;
+}
+
+.chart-end-label {
+  fill: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
 .points-history-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.points-history-legend span {
+.history-legend-item {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 8px;
+  min-height: 0;
   padding: 6px 8px;
   color: #eaf0ff;
   font-size: 12px;
   font-weight: 800;
   background: rgb(255 255 255 / 7%);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
 }
 
-.points-history-legend i {
+.history-legend-item:hover {
+  filter: brightness(1.08);
+}
+
+.history-legend-item.hidden {
+  opacity: 0.38;
+}
+
+.history-legend-item i {
   width: 10px;
   height: 10px;
   border-radius: 999px;
 }
 
-.points-history-legend strong {
+.history-legend-item strong {
   color: var(--gold);
+}
+
+.history-legend-item.hidden strong {
+  color: var(--text-muted);
 }
 
 .message {
