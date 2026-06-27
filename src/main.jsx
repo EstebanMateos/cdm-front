@@ -956,7 +956,7 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
     ["Finale", mainMatches.filter((match) => match.stage === "final")],
   ].map(([label, roundMatches]) => [
     label,
-    roundMatches.slice().sort((a, b) => a.match_num - b.match_num),
+    roundMatches.slice().sort(compareBracketMatches),
   ]);
   const layout = buildBracketLayout(rounds, editable);
 
@@ -1007,6 +1007,29 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
       </div>
     </div>
   );
+}
+
+const BRACKET_VISUAL_ORDER = {
+  round_of_32: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87],
+  round_of_16: [90, 89, 93, 94, 91, 92, 95, 96],
+  quarter_final: [97, 98, 99, 100],
+  semi_final: [101, 102],
+  final: [104],
+};
+
+const BRACKET_VISUAL_RANK = Object.fromEntries(
+  Object.entries(BRACKET_VISUAL_ORDER).map(([stage, matchNums]) => [
+    stage,
+    new Map(matchNums.map((matchNum, index) => [matchNum, index])),
+  ]),
+);
+
+function compareBracketMatches(a, b) {
+  const rank = BRACKET_VISUAL_RANK[a.stage];
+  if (a.stage !== b.stage) {
+    return a.match_num - b.match_num;
+  }
+  return (rank?.get(a.match_num) ?? a.match_num) - (rank?.get(b.match_num) ?? b.match_num);
 }
 
 function BracketCard({ authHeaders, editable = false, editorSide = "bottom", match, runAction, top }) {
