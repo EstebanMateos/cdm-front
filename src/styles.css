@@ -624,6 +624,173 @@ th {
   white-space: nowrap;
 }
 
+.round-of-32-panel {
+  overflow: hidden;
+}
+
+.round-of-32-days {
+  display: grid;
+  gap: 16px;
+}
+
+.round-of-32-day {
+  display: grid;
+  gap: 9px;
+}
+
+.round-of-32-day h3 {
+  color: var(--gold);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.round-of-32-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.round-of-32-card {
+  position: relative;
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 8px;
+  padding: 11px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 9%), rgb(255 255 255 / 5%));
+}
+
+.round-of-32-card.in-progress {
+  border-color: rgb(225 61 79 / 52%);
+  background: linear-gradient(135deg, rgb(225 61 79 / 18%), rgb(255 255 255 / 7%) 44%);
+}
+
+.round-of-32-card.in-progress .round-of-32-meta {
+  padding-left: 18px;
+}
+
+.round-of-32-meta,
+.round-of-32-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.round-of-32-meta strong {
+  color: white;
+  font-size: 15px;
+}
+
+.round-of-32-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.round-of-32-teams span {
+  min-width: 0;
+  overflow: hidden;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-of-32-teams span:last-child {
+  text-align: right;
+}
+
+.round-of-32-teams strong {
+  min-width: 54px;
+  border-radius: 7px;
+  padding: 6px 9px;
+  color: white;
+  text-align: center;
+  white-space: nowrap;
+  background: rgb(255 255 255 / 10%);
+}
+
+.round-of-32-status strong {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.round-of-32-status strong.live {
+  color: white;
+  background: rgb(225 61 79 / 65%);
+}
+
+.round-of-32-status strong.done {
+  color: #061229;
+  background: var(--gold);
+}
+
+.round-of-32-status strong.upcoming {
+  color: #dfe8ff;
+  background: rgb(255 255 255 / 10%);
+}
+
+.group-history {
+  padding: 0;
+}
+
+.group-history summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.group-history summary::-webkit-details-marker {
+  display: none;
+}
+
+.group-history summary::after {
+  content: "+";
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  color: var(--gold);
+  font-weight: 800;
+  background: rgb(255 255 255 / 8%);
+}
+
+.group-history[open] summary::after {
+  content: "-";
+}
+
+.group-history summary h2 {
+  margin: 0;
+}
+
+.group-history summary span {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.group-history .group-grid {
+  padding: 0 18px 18px;
+}
+
 .group-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -916,6 +1083,25 @@ th {
 
 .bracket-card.in-progress .bracket-side:first-of-type {
   padding-left: 28px;
+}
+
+.bracket-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  padding: 6px 8px 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bracket-card-meta strong {
+  color: white;
+  font-size: 10px;
+  text-align: right;
 }
 
 .bracket-card .result-editor {
@@ -1461,6 +1647,7 @@ th {
   .grid,
   .form,
   .group-grid,
+  .round-of-32-list,
   .today-matches-grid,
   .today-predictions-grid,
   .prediction-grid {

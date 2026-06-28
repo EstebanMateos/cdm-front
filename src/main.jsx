@@ -867,6 +867,7 @@ function TestPage({ authHeaders, busy, runAction }) {
 function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
   const groupMatches = matches.filter((match) => match.stage === "group");
   const bracketMatches = matches.filter((match) => match.stage !== "group");
+  const roundOf32Matches = bracketMatches.filter((match) => match.stage === "round_of_32");
   const groups = groupMatches.reduce((acc, match) => {
     const key = match.group_code || "?";
     acc[key] = acc[key] || [];
@@ -879,8 +880,22 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
     <>
       <TodayMatchesPanel matches={matches} />
 
+      <RoundOf32Panel matches={roundOf32Matches} />
+
       <section className="panel">
-        <h2>Groupes</h2>
+        <h2>Bracket</h2>
+        {bracketMatches.length === 0 ? (
+          <p className="empty">Aucun match de phase finale chargé.</p>
+        ) : (
+          <Bracket authHeaders={authHeaders} editable={editable} matches={bracketMatches} runAction={runAction} />
+        )}
+      </section>
+
+      <details className="panel group-history">
+        <summary>
+          <h2>Groupes terminés</h2>
+          <span>{groupMatches.filter((match) => match.result_home_goals !== null).length}/{groupMatches.length} matchs joués</span>
+        </summary>
         <div className="group-grid">
           {orderedGroups.map((groupCode) => (
             <GroupCard
@@ -893,17 +908,71 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
             />
           ))}
         </div>
-      </section>
-
-      <section className="panel">
-        <h2>Bracket</h2>
-        {bracketMatches.length === 0 ? (
-          <p className="empty">Aucun match de phase finale chargé.</p>
-        ) : (
-          <Bracket authHeaders={authHeaders} editable={editable} matches={bracketMatches} runAction={runAction} />
-        )}
-      </section>
+      </details>
     </>
+  );
+}
+
+function RoundOf32Panel({ matches }) {
+  const entries = matches
+    .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
+    .sort((a, b) => {
+      if (a.kickoff && b.kickoff) return a.kickoff.localTimestamp - b.kickoff.localTimestamp;
+      if (a.kickoff) return -1;
+      if (b.kickoff) return 1;
+      return a.match.match_num - b.match.match_num;
+    });
+  const sections = entries.reduce((acc, entry) => {
+    const key = entry.kickoff?.dateKey || "unknown";
+    if (!acc[key]) {
+      acc[key] = {
+        label: entry.kickoff?.dateLabel || "Date à confirmer",
+        entries: [],
+      };
+    }
+    acc[key].entries.push(entry);
+    return acc;
+  }, {});
+
+  return (
+    <section className="panel round-of-32-panel">
+      <div className="panel-head">
+        <h2>16èmes de finale</h2>
+        <span>{matches.length} affiches</span>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="empty">Aucun 16ème chargé.</p>
+      ) : (
+        <div className="round-of-32-days">
+          {Object.entries(sections).map(([key, section]) => (
+            <section className="round-of-32-day" key={key}>
+              <h3>{section.label}</h3>
+              <div className="round-of-32-list">
+                {section.entries.map(({ match, kickoff }) => (
+                  <article className={`round-of-32-card ${isMatchInProgress(match) ? "in-progress" : ""}`} key={match.match_num}>
+                    <LiveMatchIcon match={match} />
+                    <div className="round-of-32-meta">
+                      <span>Match {match.match_num}</span>
+                      <strong>{kickoff?.timeLabel || "--:--"}</strong>
+                    </div>
+                    <div className="round-of-32-teams">
+                      <span>{match.home_team}</span>
+                      <strong>{formatResult(match)}</strong>
+                      <span>{match.away_team}</span>
+                    </div>
+                    <div className="round-of-32-status">
+                      <span>{stageLabel(match.stage)}</span>
+                      <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1036,10 +1105,17 @@ function BracketCard({ authHeaders, editable = false, editorSide = "bottom", mat
   const hasResult = match.result_home_goals !== null;
   const homeWins = hasResult && resultWinner(match) === "home";
   const awayWins = hasResult && resultWinner(match) === "away";
+  const kickoff = matchKickoffInfo(match);
 
   return (
     <article className={`bracket-card editor-${editorSide} ${isMatchInProgress(match) ? "in-progress" : ""}`} style={{ top }}>
       <LiveMatchIcon match={match} />
+      {kickoff && (
+        <div className="bracket-card-meta">
+          <span>Match {match.match_num}</span>
+          <strong>{kickoff.shortDateLabel} · {kickoff.timeLabel}</strong>
+        </div>
+      )}
       <div className={`bracket-side ${homeWins ? "winner" : ""}`}>
         <span>{match.home_team}</span>
         <strong>{hasResult ? resultSideLabel(match, "home") : ""}</strong>
@@ -1055,7 +1131,7 @@ function BracketCard({ authHeaders, editable = false, editorSide = "bottom", mat
 
 function buildBracketLayout(rounds, editable = false) {
   const cardWidth = 188;
-  const cardHeight = 68;
+  const cardHeight = editable ? 138 : 92;
   const roundGap = 44;
   const firstGap = 16;
   const headerHeight = 34;
@@ -1868,12 +1944,16 @@ function dayMatchEntries(matches, dayOffset = 0) {
 }
 
 function matchKickoffInfo(match) {
-  if (Number.isFinite(Number(match.calendar_timestamp))) {
-    const date = new Date(Number(match.calendar_timestamp) * 1000);
+  const calendarTimestamp = Number(match.calendar_timestamp);
+  if (match.calendar_timestamp !== null && match.calendar_timestamp !== undefined && match.calendar_timestamp !== "" && Number.isFinite(calendarTimestamp)) {
+    const date = new Date(calendarTimestamp * 1000);
     const local = franceLocalParts(date);
     if (local) {
       return {
         localTimestamp: localTimestamp(local),
+        dateKey: localDateKey(local),
+        dateLabel: formatLocalDate(local, "long"),
+        shortDateLabel: formatLocalDate(local, "short"),
         timeLabel: `${String(local.hour).padStart(2, "0")}:${String(local.minute).padStart(2, "0")}`,
       };
     }
@@ -1889,6 +1969,9 @@ function matchKickoffInfo(match) {
 
   return {
     localTimestamp: localTimestamp(local),
+    dateKey: localDateKey(local),
+    dateLabel: formatLocalDate(local, "long"),
+    shortDateLabel: formatLocalDate(local, "short"),
     timeLabel: `${String(local.hour).padStart(2, "0")}:${String(local.minute).padStart(2, "0")}`,
   };
 }
@@ -1943,6 +2026,20 @@ function hasExplicitTimezone(value) {
 
 function localTimestamp({ year, month, day, hour = 0, minute = 0 }) {
   return Date.UTC(year, month - 1, day, hour, minute);
+}
+
+function localDateKey({ year, month, day }) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function formatLocalDate(local, style = "long") {
+  const date = new Date(Date.UTC(local.year, local.month - 1, local.day, 12, 0));
+  const formatter = new Intl.DateTimeFormat("fr-FR", {
+    weekday: style === "long" ? "long" : undefined,
+    day: "numeric",
+    month: style === "long" ? "long" : "short",
+  });
+  return formatter.format(date);
 }
 
 function addLocalDays(timestamp, days) {
