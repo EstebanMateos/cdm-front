@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -1015,6 +1015,7 @@ function TodayMatchesPanel({ matches }) {
 }
 
 function Bracket({ authHeaders, editable = false, matches, runAction }) {
+  const bracketRef = useRef(null);
   const mainMatches = matches.filter((match) => match.stage !== "third_place");
   const rounds = [
     ["Seizièmes", mainMatches.filter((match) => match.stage === "round_of_32")],
@@ -1027,11 +1028,31 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
     roundMatches.slice().sort(compareBracketMatches),
   ]);
   const layout = buildCircularBracketLayout(rounds);
+  const bracketWidth = useElementWidth(bracketRef);
+  const bracketScale = bracketWidth ? Math.min(1, bracketWidth / layout.size) : 1;
+  const isScaled = bracketScale < 1;
+  const bracketHeight = Math.ceil(layout.size * bracketScale);
+  const boardStyle = {
+    height: layout.size,
+    width: layout.size,
+    ...(isScaled
+      ? {
+          left: "50%",
+          margin: `0 0 0 ${-layout.size / 2}px`,
+          transform: `scale(${bracketScale})`,
+          transformOrigin: "top center",
+        }
+      : {}),
+  };
 
   return (
     <div className="bracket-shell">
-      <div className="circular-bracket" style={{ height: layout.size }}>
-        <div className="circular-bracket-board" style={{ width: layout.size, height: layout.size }}>
+      <div
+        className="circular-bracket"
+        ref={bracketRef}
+        style={{ height: bracketHeight, overflow: isScaled ? "hidden" : "auto" }}
+      >
+        <div className="circular-bracket-board" style={boardStyle}>
           <svg className="circular-bracket-lines" viewBox={`0 0 ${layout.size} ${layout.size}`} aria-hidden="true">
             {layout.lines.map((line) => (
               <path key={line.key} d={line.d} />
@@ -1079,6 +1100,29 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
       </div>
     </div>
   );
+}
+
+function useElementWidth(ref) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return undefined;
+
+    const updateWidth = () => setWidth(element.clientWidth);
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return width;
 }
 
 const BRACKET_VISUAL_ORDER = {
