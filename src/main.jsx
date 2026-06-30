@@ -1016,6 +1016,7 @@ function TodayMatchesPanel({ matches }) {
 
 function Bracket({ authHeaders, editable = false, matches, runAction }) {
   const bracketRef = useRef(null);
+  const [classicMobileBracket, setClassicMobileBracket] = useState(false);
   const mainMatches = matches.filter((match) => match.stage !== "third_place");
   const rounds = [
     ["Seizièmes", mainMatches.filter((match) => match.stage === "round_of_32")],
@@ -1029,7 +1030,7 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
   ]);
   const layout = buildCircularBracketLayout(rounds);
   const bracketWidth = useElementWidth(bracketRef);
-  const bracketScale = bracketWidth ? Math.min(1, bracketWidth / layout.size) : 1;
+  const bracketScale = classicMobileBracket || !bracketWidth ? 1 : Math.min(1, bracketWidth / layout.size);
   const isScaled = bracketScale < 1;
   const bracketHeight = Math.ceil(layout.size * bracketScale);
   const boardStyle = {
@@ -1047,6 +1048,15 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
 
   return (
     <div className="bracket-shell">
+      <div className="mobile-bracket-controls">
+        <button
+          className={classicMobileBracket ? "active" : ""}
+          type="button"
+          onClick={() => setClassicMobileBracket((current) => !current)}
+        >
+          {classicMobileBracket ? "Vue adaptée" : "Arbre classique"}
+        </button>
+      </div>
       <div
         className="circular-bracket"
         ref={bracketRef}

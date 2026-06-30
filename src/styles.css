@@ -1017,6 +1017,10 @@ th {
   gap: 14px;
 }
 
+.mobile-bracket-controls {
+  display: none;
+}
+
 .circular-bracket {
   position: relative;
   overflow: auto;
@@ -2017,6 +2021,28 @@ th {
 
   .points-chip span {
     white-space: normal;
+  }
+
+  .mobile-bracket-controls {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .mobile-bracket-controls button {
+    width: 100%;
+    border: 1px solid rgb(242 193 78 / 38%);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: rgb(242 193 78 / 10%);
+  }
+
+  .mobile-bracket-controls button.active {
+    color: #071733;
+    background: var(--gold);
   }
 
   .static-bracket {
