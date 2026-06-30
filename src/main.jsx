@@ -1858,6 +1858,7 @@ function ParticipantPanel({ authHeaders, editable, matches, participant, predict
                 {section.rows.map((row) => {
                   const predictedHomeTeam = row.predicted_home_team || row.home_team;
                   const predictedAwayTeam = row.predicted_away_team || row.away_team;
+                  const fixtureComparison = predictionFixtureComparison(row);
                   const draft = drafts[row.match_num] || {
                     home: row.predicted_home,
                     away: row.predicted_away,
@@ -1888,12 +1889,13 @@ function ParticipantPanel({ authHeaders, editable, matches, participant, predict
                     nullableNumber(draft.awayPenalties) !== row.predicted_away_penalties;
 
                   return (
-                    <article className="prediction-card" key={row.match_num}>
+                    <article className={`prediction-card ${fixtureComparison.correct ? "fixture-match" : ""} ${fixtureComparison.differs ? "fixture-mismatch" : ""} ${fixtureComparison.differs && fixtureComparison.overlap === 0 ? "fixture-mismatch-full" : ""}`} key={row.match_num}>
                       <div className="prediction-meta">
                         <span>{row.match_num}</span>
                         <strong>{row.points} pts</strong>
                       </div>
-                      <div className="prediction-match">
+                      <FixtureComparison comparison={fixtureComparison} />
+                      <div className={`prediction-match ${fixtureComparison.differs ? "prediction-void" : ""}`}>
                         <span className="team-name">{predictedHomeTeam}</span>
                         {editable ? (
                           <div className={`prediction-score-editor ${needsPenalties ? "with-penalties" : ""}`}>
@@ -2003,33 +2005,50 @@ function ParticipantRecentPredictions({ matches, predictions, scoringRules }) {
             <p className="empty">{section.empty}</p>
           ) : (
             <div className="today-predictions-grid">
-              {section.predictions.map(({ match, kickoff, row }) => (
-                <article className="today-prediction-card" key={match.match_num}>
-                  <div className="prediction-meta">
-                    <span>Match {match.match_num}</span>
-                    <strong>{kickoff.timeLabel}</strong>
-                  </div>
-                  <div className="prediction-match">
-                    <span className="team-name">{row.predicted_home_team || match.home_team}</span>
-                    <strong className="prediction-score">{formatPredictionScore(row)}</strong>
-                    <span className="team-name away">{row.predicted_away_team || match.away_team}</span>
-                  </div>
-                  <div className="prediction-footer">
-                    <span>Résultat : {formatPredictionResult(row)}</span>
-                    <strong>{row.points} pts</strong>
-                  </div>
-                  <div className="today-prediction-status">
-                    <span>{stageLabel(match.stage)}</span>
-                    <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
-                  </div>
-                  <PredictionPointsBreakdown row={row} scoringRules={scoringRules} />
-                </article>
-              ))}
+              {section.predictions.map(({ match, kickoff, row }) => {
+                const fixtureComparison = predictionFixtureComparison(row);
+                return (
+                  <article className={`today-prediction-card ${fixtureComparison.correct ? "fixture-match" : ""} ${fixtureComparison.differs ? "fixture-mismatch" : ""} ${fixtureComparison.differs && fixtureComparison.overlap === 0 ? "fixture-mismatch-full" : ""}`} key={match.match_num}>
+                    <div className="prediction-meta">
+                      <span>Match {match.match_num}</span>
+                      <strong>{kickoff.timeLabel}</strong>
+                    </div>
+                    <FixtureComparison comparison={fixtureComparison} />
+                    <div className={`prediction-match ${fixtureComparison.differs ? "prediction-void" : ""}`}>
+                      <span className="team-name">{row.predicted_home_team || match.home_team}</span>
+                      <strong className="prediction-score">{formatPredictionScore(row)}</strong>
+                      <span className="team-name away">{row.predicted_away_team || match.away_team}</span>
+                    </div>
+                    <div className="prediction-footer">
+                      <span>Résultat : {formatPredictionResult(row)}</span>
+                      <strong>{row.points} pts</strong>
+                    </div>
+                    <div className="today-prediction-status">
+                      <span>{stageLabel(match.stage)}</span>
+                      <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
+                    </div>
+                    <PredictionPointsBreakdown row={row} scoringRules={scoringRules} />
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
       ))}
     </section>
+  );
+}
+
+function FixtureComparison({ comparison }) {
+  if (comparison.unresolved || !comparison.differs) return null;
+
+  return (
+    <div className="fixture-comparison">
+      <span>{comparison.overlap}/2 équipe{comparison.overlap > 1 ? "s" : ""}</span>
+      <p>
+        Score non compté · Vrai match : <strong>{comparison.actualHome} - {comparison.actualAway}</strong>
+      </p>
+    </div>
   );
 }
 
@@ -2045,7 +2064,7 @@ function PredictionPointsBreakdown({ row, scoringRules }) {
     <div className="points-breakdown">
       {details.map((detail, index) => (
         <span className="points-chip" key={`${detail.key}-${detail.team || "score"}-${index}`}>
-          {pointDetailLabel(detail)}
+          <span>{pointDetailLabel(detail)}</span>
           <strong>+{Number(detail.points ?? scoringRules[detail.key] ?? 0)} pts</strong>
         </span>
       ))}
@@ -2156,6 +2175,76 @@ function scoringRuleLabel(key) {
 function pointDetailLabel(detail) {
   if (!detail.team) return scoringRuleLabel(detail.key);
   return `${scoringRuleLabel(detail.key)} : ${detail.team}`;
+}
+
+function predictionFixtureComparison(row) {
+  const predictedHome = row.predicted_home_team || row.home_team;
+  const predictedAway = row.predicted_away_team || row.away_team;
+  const actualHome = row.home_team;
+  const actualAway = row.away_team;
+  if (row.stage === "group") {
+    return {
+      actualAway,
+      actualHome,
+      correct: false,
+      differs: false,
+      overlap: 0,
+      unresolved: true,
+    };
+  }
+
+  const predicted = [predictedHome, predictedAway].filter(Boolean);
+  const actual = [actualHome, actualAway].filter(Boolean);
+  if (predicted.some(isUnresolvedTeamLabel) || actual.some(isUnresolvedTeamLabel)) {
+    return {
+      actualAway,
+      actualHome,
+      correct: false,
+      differs: false,
+      overlap: 0,
+      unresolved: true,
+    };
+  }
+
+  const normalizedPredicted = new Set(predicted.map(normalizeTeamName));
+  const normalizedActual = new Set(actual.map(normalizeTeamName));
+  const differs =
+    normalizedPredicted.size === 2 &&
+    normalizedActual.size === 2 &&
+    !setsEqual(normalizedPredicted, normalizedActual);
+  const overlap = differs
+    ? [...normalizedPredicted].filter((team) => normalizedActual.has(team)).length
+    : normalizedPredicted.size;
+
+  return {
+    actualAway,
+    actualHome,
+    correct: !differs,
+    differs,
+    overlap,
+    unresolved: false,
+  };
+}
+
+function isUnresolvedTeamLabel(value) {
+  const normalized = normalizeTeamName(value);
+  return (
+    !normalized ||
+    normalized.includes("match ") ||
+    normalized.includes("groupe ") ||
+    normalized.startsWith("vainqueur match") ||
+    normalized.startsWith("perdant match") ||
+    normalized.startsWith("3e ") ||
+    normalized.startsWith("3eme ")
+  );
+}
+
+function setsEqual(left, right) {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
 }
 
 function rowNeedsPredictionPenalties(draft, row) {

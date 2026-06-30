@@ -1682,6 +1682,27 @@ th {
   box-shadow: 0 14px 30px rgb(0 0 0 / 18%);
 }
 
+.prediction-card.fixture-mismatch,
+.today-prediction-card.fixture-mismatch {
+  border-color: rgb(242 193 78 / 44%);
+  background:
+    linear-gradient(135deg, rgb(242 193 78 / 12%), transparent 46%),
+    linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 7%));
+}
+
+.prediction-card.fixture-mismatch-full,
+.today-prediction-card.fixture-mismatch-full {
+  border-color: rgb(225 61 79 / 52%);
+  background:
+    linear-gradient(135deg, rgb(225 61 79 / 16%), transparent 46%),
+    linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 7%));
+}
+
+.prediction-card.fixture-match,
+.today-prediction-card.fixture-match {
+  border-color: rgb(85 214 132 / 52%);
+}
+
 .prediction-meta,
 .prediction-footer {
   display: flex;
@@ -1698,17 +1719,81 @@ th {
   color: var(--gold);
 }
 
+.fixture-comparison {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(242 193 78 / 24%);
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: rgb(3 8 18 / 28%);
+}
+
+.fixture-mismatch-full .fixture-comparison {
+  border-color: rgb(225 61 79 / 34%);
+}
+
+.fixture-comparison span {
+  display: inline-flex;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #071733;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--gold);
+}
+
+.fixture-mismatch-full .fixture-comparison span {
+  color: white;
+  background: rgb(225 61 79 / 82%);
+}
+
+.fixture-comparison p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixture-comparison strong {
+  color: #fff;
+}
+
+.prediction-match.prediction-void {
+  opacity: 0.78;
+}
+
+.prediction-match.prediction-void .prediction-score {
+  color: white;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: rgb(255 255 255 / 88%);
+}
+
 .points-breakdown {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  min-height: 28px;
+  overflow: hidden;
   padding-top: 2px;
 }
 
 .points-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: space-between;
+  flex: 1 1 0;
   gap: 6px;
+  min-width: 0;
   padding: 5px 7px;
   border: 1px solid rgb(242 193 78 / 18%);
   border-radius: 7px;
@@ -1718,8 +1803,16 @@ th {
   background: rgb(242 193 78 / 9%);
 }
 
+.points-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .points-chip strong {
   color: var(--gold);
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -1858,6 +1951,72 @@ th {
   .match-row {
     grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr);
     gap: 6px;
+  }
+
+  .prediction-card,
+  .today-prediction-card {
+    gap: 12px;
+    padding: 11px;
+  }
+
+  .prediction-meta,
+  .prediction-footer,
+  .today-prediction-status {
+    align-items: flex-start;
+    font-size: 11px;
+  }
+
+  .fixture-comparison {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .fixture-comparison span {
+    width: fit-content;
+  }
+
+  .fixture-comparison p {
+    overflow: visible;
+    text-align: left;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .prediction-match {
+    grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .team-name {
+    display: -webkit-box;
+    overflow: hidden;
+    min-height: 36px;
+    font-size: 13px;
+    line-height: 1.2;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .prediction-score {
+    min-width: 60px;
+    padding: 6px 7px;
+    font-size: 12px;
+  }
+
+  .points-breakdown {
+    flex-wrap: wrap;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .points-chip {
+    flex: 1 1 100%;
+  }
+
+  .points-chip span {
+    white-space: normal;
   }
 
   .static-bracket {
