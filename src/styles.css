@@ -1085,7 +1085,6 @@ th {
   z-index: 2;
   width: 56px;
   height: 56px;
-  border: 4px solid rgb(255 255 255 / 92%);
   border-radius: 999px;
   overflow: hidden;
   background: #f8fbff;
@@ -1105,7 +1104,6 @@ th {
 }
 
 .team-badge.completed {
-  border-color: rgb(255 255 255 / 62%);
   filter: grayscale(1);
 }
 
