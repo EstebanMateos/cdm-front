@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180" role="img" aria-label="Coupe du Monde">
+  <defs>
+    <linearGradient id="body" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f7f7f7"/>
+      <stop offset="0.42" stop-color="#1f2528"/>
+      <stop offset="1" stop-color="#050607"/>
+    </linearGradient>
+  </defs>
+  <path fill="#11181b" d="M50 154h20l6 14H44l6-14Z"/>
+  <path fill="#11181b" d="M39 166h42l7 10H32l7-10Z"/>
+  <path fill="#11181b" d="M45 136h30v22H45z"/>
+  <path fill="url(#body)" d="M60 8c14 0 25 10 25 24 0 9-4 17-11 22 12 10 20 27 20 47 0 28-15 49-34 49S26 129 26 101c0-20 8-37 20-47-7-5-11-13-11-22C35 18 46 8 60 8Z"/>
+  <path fill="#f8f8f8" d="M47 20c-5 4-8 10-8 17 0 12 7 19 14 23-9 9-15 24-15 41 0 18 6 33 15 40-15-4-25-21-25-42 0-19 8-35 20-44-7-5-12-13-12-22 0-5 2-10 5-14l6 1Z" opacity=".9"/>
+  <path fill="#050607" d="M74 17c8 4 13 12 13 22 0 8-4 15-10 20 11 11 17 27 17 45 0 22-9 39-23 45 9-10 14-26 14-46 0-18-6-33-16-43 7-5 12-12 12-22 0-8-3-15-8-19l1-2Z"/>
+  <path fill="none" stroke="#f8f8f8" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M51 27c-5 6-4 16 3 21M42 73c-6 12-7 29-3 42M54 66c-7 11-10 25-8 42M61 41c6 10 8 23 3 34M69 83c6 11 8 26 5 40"/>
+  <path fill="none" stroke="#11181b" stroke-linecap="round" stroke-width="5" d="M34 35c-16 8-22 24-16 39 5 12 16 18 27 15M86 35c16 8 22 24 16 39-5 12-16 18-27 15"/>
+  <path fill="#f8f8f8" d="M43 137h34v6H43z" opacity=".75"/>
+</svg>

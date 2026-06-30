@@ -1016,7 +1016,6 @@ function TodayMatchesPanel({ matches }) {
 
 function Bracket({ authHeaders, editable = false, matches, runAction }) {
   const mainMatches = matches.filter((match) => match.stage !== "third_place");
-  const thirdPlace = matches.find((match) => match.stage === "third_place");
   const rounds = [
     ["Seizièmes", mainMatches.filter((match) => match.stage === "round_of_32")],
     ["Huitièmes", mainMatches.filter((match) => match.stage === "round_of_16")],
@@ -1027,51 +1026,55 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
     label,
     roundMatches.slice().sort(compareBracketMatches),
   ]);
-  const layout = buildBracketLayout(rounds, editable);
+  const layout = buildCircularBracketLayout(rounds);
 
   return (
     <div className="bracket-shell">
-      <div className="static-bracket" style={{ height: layout.height }}>
-        <div className="bracket-board" style={{ width: layout.width, height: layout.height }}>
-          <svg className="bracket-lines" viewBox={`0 0 ${layout.width} ${layout.height}`}>
-          {layout.lines.map((line) => (
-            <path key={line.key} d={line.path} />
-          ))}
+      <div className="circular-bracket" style={{ height: layout.size }}>
+        <div className="circular-bracket-board" style={{ width: layout.size, height: layout.size }}>
+          <svg className="circular-bracket-lines" viewBox={`0 0 ${layout.size} ${layout.size}`} aria-hidden="true">
+            {layout.lines.map((line) => (
+              <path key={line.key} d={line.d} />
+            ))}
           </svg>
 
-          {rounds.map(([label, roundMatches], roundIndex) => (
-            <section
-              className="static-round"
-              key={label}
-              style={{ left: layout.rounds[roundIndex].x, width: layout.cardWidth }}
-            >
-              <h3>{label}</h3>
-              {roundMatches.map((match, matchIndex) => (
-                <BracketCard
-                  key={match.match_num}
-                  authHeaders={authHeaders}
-                  editorSide={editable && roundIndex === 0 ? "left" : "bottom"}
-                  editable={editable}
-                  match={match}
-                  runAction={runAction}
-                  top={layout.rounds[roundIndex].items[matchIndex].top}
-                />
-              ))}
-            </section>
-          ))}
+          {layout.teamBadges.map((badge) => {
+            const flagPath = flagPathForTeam(badge.team);
+            if (!flagPath) return null;
+            return (
+              <div
+                className={`team-badge ${badge.side} ${badge.completed ? "completed" : ""}`}
+                key={badge.key}
+                style={{ left: badge.x, top: badge.y }}
+                title={badge.team}
+              >
+                <img alt="" src={flagPath} />
+              </div>
+            );
+          })}
 
-          {thirdPlace && (
-            <section className="third-place" style={{ left: layout.thirdPlace.x, top: layout.thirdPlace.top }}>
-              <h3>Petite finale</h3>
-              <BracketCard
-                authHeaders={authHeaders}
-                editable={editable}
-                match={thirdPlace}
-                runAction={runAction}
-                top={34}
-              />
-            </section>
-          )}
+          {layout.advancedBadges.map((badge) => {
+            const flagPath = flagPathForTeam(badge.team);
+            if (!flagPath) return null;
+            return (
+              <div
+                className={`team-badge advanced ${badge.stage}`}
+                key={badge.key}
+                style={{ left: badge.x, top: badge.y }}
+                title={badge.team}
+              >
+                <img alt="" src={flagPath} />
+              </div>
+            );
+          })}
+
+          <div className="bracket-center" style={{ left: layout.center, top: layout.center }}>
+            <div className="cup-mark" aria-hidden="true">
+              <span className="center-dot left" />
+              <span className="center-dot right" />
+              <img className="cup-trophy" src="/assets/world-cup-2026-center.png" alt="" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1101,14 +1104,17 @@ function compareBracketMatches(a, b) {
   return (rank?.get(a.match_num) ?? a.match_num) - (rank?.get(b.match_num) ?? b.match_num);
 }
 
-function BracketCard({ authHeaders, editable = false, editorSide = "bottom", match, runAction, top }) {
+function BracketCard({ authHeaders, compact = false, editable = false, editorSide = "bottom", left, match, runAction, top }) {
   const hasResult = match.result_home_goals !== null;
   const homeWins = hasResult && resultWinner(match) === "home";
   const awayWins = hasResult && resultWinner(match) === "away";
   const kickoff = matchKickoffInfo(match);
 
   return (
-    <article className={`bracket-card editor-${editorSide} ${isMatchInProgress(match) ? "in-progress" : ""}`} style={{ top }}>
+    <article
+      className={`bracket-card editor-${editorSide} ${compact ? "compact" : ""} ${isMatchInProgress(match) ? "in-progress" : ""}`}
+      style={{ left, top }}
+    >
       <LiveMatchIcon match={match} />
       {kickoff && (
         <div className="bracket-card-meta">
@@ -1174,6 +1180,244 @@ function buildBracketLayout(rounds, editable = false) {
   }
 
   return { cardWidth, height, lines, rounds: roundsLayout, thirdPlace, width };
+}
+
+function buildCircularBracketLayout(rounds) {
+  const size = 1120;
+  const center = size / 2;
+  const radii = [405, 306, 220, 142, 0];
+  const roundOf32 = rounds[0]?.[1] || [];
+  const teamRadius = 500;
+  const advancedBadges = [];
+  const advancedNodeKeys = [];
+  const teamBadges = [];
+  const lines = [];
+  const nodes = [];
+  const roundLayouts = rounds.map(([label, matches], roundIndex) => {
+    const radius = radii[roundIndex];
+    const items = matches.map((match, index) => {
+      if (roundIndex === 4) return { match, angle: -90, radius: 0, x: center, y: center };
+      const angle = bracketNodeAngle(index, matches.length);
+      return {
+        match,
+        angle,
+        radius,
+        ...polarPoint(center, radius, angle),
+      };
+    });
+    return { label, items };
+  });
+
+  roundLayouts.forEach((round, roundIndex) => {
+    round.items.forEach((item) => {
+      const node = {
+        key: `node-${item.match.match_num}`,
+        match: item.match,
+        stage: item.match.stage,
+        x: item.x,
+        y: item.y,
+        roundIndex,
+      };
+      nodes.push(node);
+
+      const winner = resultWinningTeam(item.match);
+      if (winner && item.match.stage !== "final") {
+        advancedBadges.push({
+          key: `advanced-${item.match.match_num}`,
+          roundIndex,
+          stage: item.match.stage,
+          team: winner,
+          x: item.x,
+          y: item.y,
+        });
+        advancedNodeKeys.push(node.key);
+      }
+    });
+  });
+
+  roundOf32.forEach((match, index) => {
+    const matchNode = roundLayouts[0].items[index];
+    ["home", "away"].forEach((side, sideIndex) => {
+      const team = side === "home" ? match.home_team : match.away_team;
+      const teamAngle = -90 + (index * 2 + sideIndex) * (360 / 32);
+      const point = polarPoint(center, teamRadius, teamAngle);
+      const teamNode = {
+        angle: teamAngle,
+        radius: teamRadius,
+        ...point,
+      };
+      teamBadges.push({
+        key: `${match.match_num}-${side}`,
+        completed: match.result_home_goals !== null,
+        side,
+        team,
+        ...teamNode,
+      });
+      lines.push({
+        key: `team-${match.match_num}-${side}`,
+        d: bracketConnectorPath(center, teamNode, matchNode),
+      });
+    });
+  });
+
+  for (let roundIndex = 0; roundIndex < roundLayouts.length - 1; roundIndex += 1) {
+    const current = roundLayouts[roundIndex];
+    const next = roundLayouts[roundIndex + 1];
+    current.items.forEach((item, index) => {
+      const parent = next.items[Math.floor(index / 2)];
+      if (!parent) return;
+      lines.push({
+        key: `round-${roundIndex}-${index}`,
+        d: bracketConnectorPath(center, item, parent),
+      });
+    });
+  }
+
+  const visibleAdvancedBadges = mostAdvancedBadges(advancedBadges);
+  return {
+    advancedBadges: visibleAdvancedBadges,
+    advancedNodeKeys,
+    center,
+    lines,
+    nodes,
+    rounds: roundLayouts,
+    size,
+    teamBadges,
+  };
+}
+
+function mostAdvancedBadges(badges) {
+  const byTeam = new Map();
+  for (const badge of badges) {
+    const key = normalizeTeamName(badge.team);
+    const current = byTeam.get(key);
+    if (!current || badge.roundIndex > current.roundIndex) {
+      byTeam.set(key, badge);
+    }
+  }
+  return Array.from(byTeam.values());
+}
+
+function bracketNodeAngle(index, count) {
+  if (count <= 0) return -90;
+  if (count === 2) return index === 0 ? 0 : 180;
+  const leafCount = 32;
+  const leafStep = 360 / leafCount;
+  const leafSpan = leafCount / count;
+  return -90 + (index * leafSpan + (leafSpan - 1) / 2) * leafStep;
+}
+
+function polarPoint(center, radius, angle) {
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: center + Math.cos(radians) * radius,
+    y: center + Math.sin(radians) * radius,
+  };
+}
+
+function bracketConnectorPath(center, from, to) {
+  if (!from || !to) return "";
+  if (to.radius === 0) {
+    const targetX = center + (Math.cos((from.angle * Math.PI) / 180) >= 0 ? 66 : -66);
+    return `M ${formatCoord(from.x)} ${formatCoord(from.y)} L ${formatCoord(targetX)} ${formatCoord(center)}`;
+  }
+
+  const bridgeRadius = Math.max(to.radius + 22, (from.radius + to.radius) / 2);
+  const radialStart = polarPoint(center, bridgeRadius, from.angle);
+  const radialEnd = polarPoint(center, bridgeRadius, to.angle);
+  const arc = arcCommand(center, bridgeRadius, from.angle, to.angle);
+
+  return [
+    `M ${formatCoord(from.x)} ${formatCoord(from.y)}`,
+    `L ${formatCoord(radialStart.x)} ${formatCoord(radialStart.y)}`,
+    arc,
+    `L ${formatCoord(to.x)} ${formatCoord(to.y)}`,
+  ].join(" ");
+}
+
+function arcCommand(center, radius, fromAngle, toAngle) {
+  const end = polarPoint(center, radius, toAngle);
+  const delta = shortestAngleDelta(fromAngle, toAngle);
+  if (Math.abs(delta) < 0.1) {
+    return `L ${formatCoord(end.x)} ${formatCoord(end.y)}`;
+  }
+  const largeArc = Math.abs(delta) > 180 ? 1 : 0;
+  const sweep = delta > 0 ? 1 : 0;
+  return `A ${formatCoord(radius)} ${formatCoord(radius)} 0 ${largeArc} ${sweep} ${formatCoord(end.x)} ${formatCoord(end.y)}`;
+}
+
+function shortestAngleDelta(fromAngle, toAngle) {
+  return ((((toAngle - fromAngle) % 360) + 540) % 360) - 180;
+}
+
+function formatCoord(value) {
+  return Number(value).toFixed(2);
+}
+
+const FLAG_CODES = {
+  "afrique du sud": "za",
+  algerie: "dz",
+  allemagne: "de",
+  angleterre: "gb-eng",
+  "arabie saoudite": "sa",
+  argentine: "ar",
+  australie: "au",
+  autriche: "at",
+  belgique: "be",
+  bosnie: "ba",
+  bresil: "br",
+  canada: "ca",
+  "cap vert": "cv",
+  colombie: "co",
+  "coree du sud": "kr",
+  croatie: "hr",
+  curacao: "cw",
+  "cote d ivoire": "ci",
+  espagne: "es",
+  france: "fr",
+  ghana: "gh",
+  haiti: "ht",
+  iran: "ir",
+  iraq: "iq",
+  japon: "jp",
+  jordanie: "jo",
+  maroc: "ma",
+  mexique: "mx",
+  norvege: "no",
+  "nouvelle zelande": "nz",
+  ouzbekistan: "uz",
+  panama: "pa",
+  paraguay: "py",
+  "pays bas": "nl",
+  portugal: "pt",
+  qatar: "qa",
+  "rd congo": "cd",
+  suisse: "ch",
+  suede: "se",
+  senegal: "sn",
+  tchequie: "cz",
+  tunisie: "tn",
+  turquie: "tr",
+  uruguay: "uy",
+  ecosse: "gb-sct",
+  egypte: "eg",
+  equateur: "ec",
+  "etats unis": "us",
+};
+
+function flagPathForTeam(team) {
+  const code = FLAG_CODES[normalizeTeamName(team)];
+  return code ? `/assets/flags/${code}.svg` : null;
+}
+
+function normalizeTeamName(team) {
+  return String(team || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’.-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function GroupCard({ authHeaders, editable = false, groupCode, matches, runAction }) {
@@ -1392,6 +1636,13 @@ function resultWinner(match) {
   if (match.result_away_goals > match.result_home_goals) return "away";
   if (match.result_home_penalties > match.result_away_penalties) return "home";
   if (match.result_away_penalties > match.result_home_penalties) return "away";
+  return null;
+}
+
+function resultWinningTeam(match) {
+  const winner = resultWinner(match);
+  if (winner === "home") return match.home_team;
+  if (winner === "away") return match.away_team;
   return null;
 }
 

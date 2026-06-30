@@ -1017,6 +1017,193 @@ th {
   gap: 14px;
 }
 
+.circular-bracket {
+  position: relative;
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(242 193 78 / 14%), transparent 20%),
+    radial-gradient(circle at 50% 48%, rgb(47 111 228 / 20%), transparent 48%),
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
+    linear-gradient(rgb(255 255 255 / 3%) 1px, transparent 1px),
+    linear-gradient(145deg, #061229 0%, #102d69 52%, #071733 100%);
+  background-size:
+    auto,
+    auto,
+    44px 44px,
+    44px 44px,
+    auto;
+}
+
+.circular-bracket-board {
+  position: relative;
+  margin: 0 auto;
+  color: #eaf0ff;
+}
+
+.circular-bracket-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.circular-bracket-lines path {
+  fill: none;
+  stroke: rgb(234 240 255 / 78%);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.7;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 28%));
+}
+
+.team-badge {
+  position: absolute;
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  border: 4px solid rgb(255 255 255 / 92%);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f8fbff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 16px rgb(0 0 0 / 18%);
+}
+
+.team-badge img {
+  position: relative;
+  left: 50%;
+  display: block;
+  height: 100%;
+  min-width: 100%;
+  max-width: none;
+  width: auto;
+  transform: translateX(-50%);
+}
+
+.team-badge.completed {
+  border-color: rgb(255 255 255 / 62%);
+  filter: grayscale(1);
+}
+
+.team-badge.advanced {
+  z-index: 4;
+  opacity: 1;
+  filter: none;
+  box-shadow: 0 7px 14px rgb(0 0 0 / 20%);
+}
+
+.team-badge.advanced.semi_final {
+  width: 56px;
+  height: 56px;
+}
+
+.bracket-center {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+}
+
+.cup-mark {
+  position: relative;
+  display: block;
+  width: 84px;
+  height: 126px;
+}
+
+.center-dot {
+  position: absolute;
+  top: 50%;
+  z-index: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: rgb(234 240 255 / 92%);
+  box-shadow: 0 3px 7px rgb(0 0 0 / 18%);
+  transform: translateY(-50%);
+}
+
+.center-dot.left {
+  left: -30px;
+}
+
+.center-dot.right {
+  right: -30px;
+}
+
+.cup-trophy {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 7px 10px rgb(0 0 0 / 24%));
+}
+
+.circular-bracket .bracket-card {
+  z-index: 3;
+  width: 136px;
+  color: #dbe6ff;
+  transform: translate(-50%, -50%);
+}
+
+.circular-bracket .bracket-card.compact {
+  border-color: rgb(31 41 44 / 18%);
+  background: rgb(9 27 58 / 94%);
+  box-shadow: 0 9px 18px rgb(0 0 0 / 20%);
+}
+
+.circular-bracket .bracket-card.compact .bracket-card-meta {
+  padding: 4px 7px;
+  font-size: 9px;
+}
+
+.circular-bracket .bracket-card.compact .bracket-card-meta strong {
+  display: none;
+}
+
+.circular-bracket .bracket-card.compact .bracket-side {
+  grid-template-columns: minmax(0, 1fr) 25px;
+  min-height: 27px;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.circular-bracket .bracket-card.compact .result-display {
+  min-height: 25px;
+  margin: 5px 7px 7px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.circular-bracket .bracket-card.compact .result-editor {
+  margin: 6px;
+  padding: 6px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 8px;
+  background: rgb(6 18 41 / 96%);
+}
+
+.circular-bracket .score-inputs {
+  grid-template-columns: 36px 10px 36px;
+}
+
+.circular-third-place {
+  right: 34px;
+  bottom: 26px;
+  z-index: 5;
+}
+
+.circular-third-place .bracket-card {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+}
+
 .static-bracket {
   position: relative;
   overflow-x: auto;
