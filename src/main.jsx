@@ -1016,8 +1016,9 @@ function TodayMatchesPanel({ matches }) {
 
 function Bracket({ authHeaders, editable = false, matches, runAction }) {
   const bracketRef = useRef(null);
-  const [classicMobileBracket, setClassicMobileBracket] = useState(false);
+  const [classicBracket, setClassicBracket] = useState(false);
   const mainMatches = matches.filter((match) => match.stage !== "third_place");
+  const thirdPlace = matches.find((match) => match.stage === "third_place");
   const rounds = [
     ["Seizièmes", mainMatches.filter((match) => match.stage === "round_of_32")],
     ["Huitièmes", mainMatches.filter((match) => match.stage === "round_of_16")],
@@ -1029,8 +1030,9 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
     roundMatches.slice().sort(compareBracketMatches),
   ]);
   const layout = buildCircularBracketLayout(rounds);
+  const classicLayout = buildBracketLayout(rounds, editable);
   const bracketWidth = useElementWidth(bracketRef);
-  const bracketScale = classicMobileBracket || !bracketWidth ? 1 : Math.min(1, bracketWidth / layout.size);
+  const bracketScale = bracketWidth ? Math.min(1, bracketWidth / layout.size) : 1;
   const isScaled = bracketScale < 1;
   const bracketHeight = Math.ceil(layout.size * bracketScale);
   const boardStyle = {
@@ -1048,66 +1050,109 @@ function Bracket({ authHeaders, editable = false, matches, runAction }) {
 
   return (
     <div className="bracket-shell">
-      <div className="mobile-bracket-controls">
+      <div className="bracket-view-controls">
         <button
-          className={classicMobileBracket ? "active" : ""}
+          className={classicBracket ? "active" : ""}
           type="button"
-          onClick={() => setClassicMobileBracket((current) => !current)}
+          onClick={() => setClassicBracket((current) => !current)}
         >
-          {classicMobileBracket ? "Vue adaptée" : "Arbre classique"}
+          {classicBracket ? "Vue circulaire" : "Arbre classique"}
         </button>
       </div>
-      <div
-        className="circular-bracket"
-        ref={bracketRef}
-        style={{ height: bracketHeight, overflow: isScaled ? "hidden" : "auto" }}
-      >
-        <div className="circular-bracket-board" style={boardStyle}>
-          <svg className="circular-bracket-lines" viewBox={`0 0 ${layout.size} ${layout.size}`} aria-hidden="true">
-            {layout.lines.map((line) => (
-              <path key={line.key} d={line.d} />
+      {classicBracket ? (
+        <div className="static-bracket">
+          <div className="bracket-board" style={{ height: classicLayout.height, width: classicLayout.width }}>
+            <svg className="bracket-lines" viewBox={`0 0 ${classicLayout.width} ${classicLayout.height}`} aria-hidden="true">
+              {classicLayout.lines.map((line) => (
+                <path d={line.path} key={line.key} />
+              ))}
+            </svg>
+            {classicLayout.rounds.map((round, roundIndex) => (
+              <section className="static-round" key={round.label} style={{ left: round.x, width: classicLayout.cardWidth }}>
+                <h3>{round.label}</h3>
+                {round.items.map((item) => (
+                  <BracketCard
+                    authHeaders={authHeaders}
+                    editable={editable}
+                    editorSide={roundIndex === 0 ? "left" : "bottom"}
+                    key={item.match.match_num}
+                    match={item.match}
+                    runAction={runAction}
+                    top={item.top}
+                  />
+                ))}
+              </section>
             ))}
-          </svg>
-
-          {layout.teamBadges.map((badge) => {
-            const flagPath = flagPathForTeam(badge.team);
-            if (!flagPath) return null;
-            return (
-              <div
-                className={`team-badge ${badge.side} ${badge.completed ? "completed" : ""}`}
-                key={badge.key}
-                style={{ left: badge.x, top: badge.y }}
-                title={badge.team}
+            {thirdPlace && (
+              <section
+                className="third-place"
+                style={{ left: classicLayout.thirdPlace.x, top: classicLayout.thirdPlace.top }}
               >
-                <img alt="" src={flagPath} />
-              </div>
-            );
-          })}
+                <h3>Petite finale</h3>
+                <BracketCard
+                  authHeaders={authHeaders}
+                  editable={editable}
+                  match={thirdPlace}
+                  runAction={runAction}
+                  top={34}
+                />
+              </section>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div
+          className="circular-bracket"
+          ref={bracketRef}
+          style={{ height: bracketHeight, overflow: isScaled ? "hidden" : "auto" }}
+        >
+          <div className="circular-bracket-board" style={boardStyle}>
+            <svg className="circular-bracket-lines" viewBox={`0 0 ${layout.size} ${layout.size}`} aria-hidden="true">
+              {layout.lines.map((line) => (
+                <path key={line.key} d={line.d} />
+              ))}
+            </svg>
 
-          {layout.advancedBadges.map((badge) => {
-            const flagPath = flagPathForTeam(badge.team);
-            if (!flagPath) return null;
-            return (
-              <div
-                className={`team-badge advanced ${badge.stage}`}
-                key={badge.key}
-                style={{ left: badge.x, top: badge.y }}
-                title={badge.team}
-              >
-                <img alt="" src={flagPath} />
-              </div>
-            );
-          })}
+            {layout.teamBadges.map((badge) => {
+              const flagPath = flagPathForTeam(badge.team);
+              if (!flagPath) return null;
+              return (
+                <div
+                  className={`team-badge ${badge.side} ${badge.completed ? "completed" : ""}`}
+                  key={badge.key}
+                  style={{ left: badge.x, top: badge.y }}
+                  title={badge.team}
+                >
+                  <img alt="" src={flagPath} />
+                </div>
+              );
+            })}
 
-          <div className="bracket-center" style={{ left: layout.center, top: layout.center }}>
-            <div className="cup-mark" aria-hidden="true">
-              <span className="center-dot left" />
-              <span className="center-dot right" />
-              <img className="cup-trophy" src="/assets/world-cup-2026-center.png" alt="" />
+            {layout.advancedBadges.map((badge) => {
+              const flagPath = flagPathForTeam(badge.team);
+              if (!flagPath) return null;
+              return (
+                <div
+                  className={`team-badge advanced ${badge.stage}`}
+                  key={badge.key}
+                  style={{ left: badge.x, top: badge.y }}
+                  title={badge.team}
+                >
+                  <img alt="" src={flagPath} />
+                </div>
+              );
+            })}
+
+            <div className="bracket-center" style={{ left: layout.center, top: layout.center }}>
+              <div className="cup-mark" aria-hidden="true">
+                <span className="center-dot left" />
+                <span className="center-dot right" />
+                <img className="cup-trophy" src="/assets/world-cup-2026-center.png" alt="" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
