@@ -867,7 +867,7 @@ function TestPage({ authHeaders, busy, runAction }) {
 function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
   const groupMatches = matches.filter((match) => match.stage === "group");
   const bracketMatches = matches.filter((match) => match.stage !== "group");
-  const roundOf32Matches = bracketMatches.filter((match) => match.stage === "round_of_32");
+  const knownBracketMatches = bracketMatches.filter(hasKnownMatchTeams);
   const groups = groupMatches.reduce((acc, match) => {
     const key = match.group_code || "?";
     acc[key] = acc[key] || [];
@@ -880,7 +880,7 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
     <>
       <TodayMatchesPanel matches={matches} />
 
-      <RoundOf32Panel matches={roundOf32Matches} />
+      <KnockoutSchedulePanel matches={knownBracketMatches} />
 
       <section className="panel">
         <h2>Bracket</h2>
@@ -913,7 +913,7 @@ function MatchesPanel({ authHeaders, editable = false, matches, runAction }) {
   );
 }
 
-function RoundOf32Panel({ matches }) {
+function KnockoutSchedulePanel({ matches }) {
   const entries = matches
     .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
     .sort((a, b) => {
@@ -922,6 +922,44 @@ function RoundOf32Panel({ matches }) {
       if (b.kickoff) return 1;
       return a.match.match_num - b.match.match_num;
     });
+  const now = currentFranceLocalTimestamp();
+  const pastEntries = entries.filter(({ match, kickoff }) => (
+    match.result_home_goals !== null ||
+    (kickoff && kickoff.localTimestamp < now)
+  ));
+  const futureEntries = entries.filter(({ match, kickoff }) => (
+    match.result_home_goals === null &&
+    (!kickoff || kickoff.localTimestamp >= now)
+  ));
+
+  return (
+    <>
+      <section className="panel round-of-32-panel">
+        <div className="panel-head">
+          <h2>Futurs matchs</h2>
+        </div>
+        <KnockoutScheduleSection
+          emptyLabel="Aucun futur match avec les deux équipes connues."
+          entries={futureEntries}
+        />
+      </section>
+
+      <details className="panel round-of-32-panel round-of-32-history">
+        <summary>
+          <span className="details-chevron" aria-hidden="true">›</span>
+          <h2>Matchs post-groupes passés</h2>
+          <span className="details-count">{pastEntries.length} match{pastEntries.length > 1 ? "s" : ""}</span>
+        </summary>
+        <KnockoutScheduleSection
+          emptyLabel="Aucun match passé avec les deux équipes connues."
+          entries={pastEntries}
+        />
+      </details>
+    </>
+  );
+}
+
+function KnockoutScheduleSection({ emptyLabel, entries, title }) {
   const sections = entries.reduce((acc, entry) => {
     const key = entry.kickoff?.dateKey || "unknown";
     if (!acc[key]) {
@@ -934,45 +972,52 @@ function RoundOf32Panel({ matches }) {
     return acc;
   }, {});
 
-  return (
-    <section className="panel round-of-32-panel">
-      <div className="panel-head">
-        <h2>16èmes de finale</h2>
-        <span>{matches.length} affiches</span>
-      </div>
+  if (entries.length === 0) {
+    return (
+      <section className="round-of-32-day">
+        {title && <h3>{title}</h3>}
+        <p className="empty">{emptyLabel}</p>
+      </section>
+    );
+  }
 
-      {entries.length === 0 ? (
-        <p className="empty">Aucun 16ème chargé.</p>
-      ) : (
-        <div className="round-of-32-days">
-          {Object.entries(sections).map(([key, section]) => (
-            <section className="round-of-32-day" key={key}>
-              <h3>{section.label}</h3>
-              <div className="round-of-32-list">
-                {section.entries.map(({ match, kickoff }) => (
-                  <article className={`round-of-32-card ${isMatchInProgress(match) ? "in-progress" : ""}`} key={match.match_num}>
-                    <LiveMatchIcon match={match} />
-                    <div className="round-of-32-meta">
-                      <span>Match {match.match_num}</span>
-                      <strong>{kickoff?.timeLabel || "--:--"}</strong>
-                    </div>
-                    <div className="round-of-32-teams">
-                      <span>{match.home_team}</span>
-                      <strong>{formatResult(match)}</strong>
-                      <span>{match.away_team}</span>
-                    </div>
-                    <div className="round-of-32-status">
-                      <span>{stageLabel(match.stage)}</span>
-                      <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+  return (
+    <section className="round-of-32-day">
+      {title && <h3>{title}</h3>}
+      <div className="round-of-32-days">
+        {Object.entries(sections).map(([key, section]) => (
+          <div className="round-of-32-day" key={key}>
+            <h3>{section.label}</h3>
+            <KnockoutCards entries={section.entries} />
+          </div>
+        ))}
+      </div>
     </section>
+  );
+}
+
+function KnockoutCards({ entries }) {
+  return (
+    <div className="round-of-32-list">
+      {entries.map(({ match, kickoff }) => (
+        <article className={`round-of-32-card ${isMatchInProgress(match) ? "in-progress" : ""}`} key={match.match_num}>
+          <LiveMatchIcon match={match} />
+          <div className="round-of-32-meta">
+            <span>Match {match.match_num}</span>
+            <strong>{kickoff?.timeLabel || "--:--"}</strong>
+          </div>
+          <div className="round-of-32-teams">
+            <span>{match.home_team}</span>
+            <strong>{formatResult(match)}</strong>
+            <span>{match.away_team}</span>
+          </div>
+          <div className="round-of-32-status">
+            <span>{stageLabel(match.stage)}</span>
+            <strong className={matchStatusClass(match)}>{matchStatusLabel(match)}</strong>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -2338,6 +2383,10 @@ function isUnresolvedTeamLabel(value) {
   );
 }
 
+function hasKnownMatchTeams(match) {
+  return !isUnresolvedTeamLabel(match.home_team) && !isUnresolvedTeamLabel(match.away_team);
+}
+
 function setsEqual(left, right) {
   if (left.size !== right.size) return false;
   for (const value of left) {
@@ -2380,6 +2429,10 @@ function dayMatchEntries(matches, dayOffset = 0) {
     .map((match) => ({ match, kickoff: matchKickoffInfo(match) }))
     .filter(({ kickoff }) => kickoff && kickoff.localTimestamp > window.start && kickoff.localTimestamp < window.end)
     .sort((a, b) => a.kickoff.localTimestamp - b.kickoff.localTimestamp);
+}
+
+function currentFranceLocalTimestamp() {
+  return localTimestamp(franceLocalParts(new Date()));
 }
 
 function matchKickoffInfo(match) {

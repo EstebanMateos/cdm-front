@@ -739,6 +739,58 @@ th {
   background: rgb(255 255 255 / 10%);
 }
 
+.round-of-32-history {
+  display: grid;
+  gap: 12px;
+}
+
+.round-of-32-history summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: -16px;
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.round-of-32-history[open] summary {
+  margin-bottom: 0;
+}
+
+.round-of-32-history summary::-webkit-details-marker {
+  display: none;
+}
+
+.round-of-32-history summary h2 {
+  margin: 0;
+}
+
+.details-chevron {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  color: var(--gold);
+  font-size: 22px;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.round-of-32-history[open] .details-chevron {
+  transform: rotate(90deg);
+}
+
+.round-of-32-history summary .details-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .group-history {
   padding: 0;
 }
