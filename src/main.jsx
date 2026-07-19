@@ -27,6 +27,9 @@ function App() {
   const [message, setMessage] = useState("");
   const [sofascoreStatus, setSofascoreStatus] = useState(null);
   const [leaderboardMode, setLeaderboardMode] = useState("all");
+  const [showVictoryPreview, setShowVictoryPreview] = useState(false);
+  const [victoryDismissed, setVictoryDismissed] = useState(false);
+  const [pointsHistoryRefreshKey, setPointsHistoryRefreshKey] = useState(0);
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem("cdm_admin_token") || "");
   const [adminUser, setAdminUser] = useState(() => localStorage.getItem("cdm_admin_user") || "");
   const currentPath = window.location.pathname;
@@ -104,6 +107,7 @@ function App() {
         throw new Error(payload.error || "Action impossible.");
       }
       await refresh();
+      setPointsHistoryRefreshKey((current) => current + 1);
       setMessage(success);
     } catch (error) {
       setMessage(error.message);
@@ -205,6 +209,15 @@ function App() {
     () => matches.filter((match) => match.result_home_goals !== null).length,
     [matches],
   );
+  const finalMatch = matches.find((match) => match.stage === "final");
+  const finalIsFinished = Boolean(
+    finalMatch &&
+    finalMatch.result_home_goals !== null &&
+    !isMatchInProgress(finalMatch),
+  );
+  const showVictoryCelebration = showVictoryPreview || (
+    !isAdminPage && finalIsFinished && !victoryDismissed
+  );
 
   return (
     <div className="page-frame">
@@ -266,6 +279,8 @@ function App() {
           testSofascore={testSofascore}
           updateParticipantSubset={updateParticipantSubset}
           authHeaders={authHeaders}
+          previewVictory={() => setShowVictoryPreview(true)}
+          pointsHistoryRefreshKey={pointsHistoryRefreshKey}
         />
       ) : (
         <HomePage
@@ -288,6 +303,17 @@ function App() {
           authHeaders={authHeaders}
           onClose={() => setSelectedParticipant(null)}
           onSaved={() => openParticipant(selectedParticipant).then(refresh)}
+        />
+      )}
+      {showVictoryCelebration && (
+        <VictoryCelebration
+          finalMatch={finalMatch}
+          leaderboard={leaderboard}
+          preview={showVictoryPreview}
+          onClose={() => {
+            setShowVictoryPreview(false);
+            setVictoryDismissed(true);
+          }}
         />
       )}
       </main>
@@ -336,6 +362,8 @@ function AdminPage({
   sofascoreStatus,
   testSofascore,
   updateParticipantSubset,
+  previewVictory,
+  pointsHistoryRefreshKey,
 }) {
   if (!adminToken) {
     return <LoginPanel busy={busy} loginAdmin={loginAdmin} />;
@@ -351,6 +379,14 @@ function AdminPage({
         <button className="secondary" onClick={logoutAdmin}>
           Déconnexion
         </button>
+      </section>
+
+      <section className="panel victory-preview-panel">
+        <div>
+          <h2>Écran de fin</h2>
+          <p>Prévisualise la célébration avec le classement actuel.</p>
+        </div>
+        <button onClick={previewVictory}>Prévisualiser le gagnant</button>
       </section>
 
       <section className="panel">
@@ -374,7 +410,7 @@ function AdminPage({
 
       {isLocalhost && <TestPage authHeaders={authHeaders} busy={busy} runAction={runAction} />}
       <SofascorePanel busy={busy} status={sofascoreStatus} testSofascore={testSofascore} />
-      <PointsHistoryPanel authHeaders={authHeaders} />
+      <PointsHistoryPanel authHeaders={authHeaders} refreshKey={pointsHistoryRefreshKey} />
       <LeaderboardPanel
         leaderboard={leaderboard}
         leaderboardMode={leaderboardMode}
@@ -389,7 +425,52 @@ function AdminPage({
   );
 }
 
-function PointsHistoryPanel({ authHeaders }) {
+function VictoryCelebration({ finalMatch, leaderboard, onClose, preview = false }) {
+  const podium = leaderboard.slice(0, 3);
+  const winner = podium[0];
+  const worldChampion = finalMatch ? resultWinningTeam(finalMatch) : null;
+
+  return (
+    <div className="victory-overlay" role="dialog" aria-modal="true" aria-label="Célébration du gagnant">
+      <div className="victory-confetti" aria-hidden="true">
+        {Array.from({ length: 28 }, (_, index) => <i key={index} />)}
+      </div>
+      <button className="victory-close" onClick={onClose} aria-label="Fermer la célébration">×</button>
+      <div className="victory-content">
+        {preview && <span className="victory-preview-label">Preview admin</span>}
+        <p className="victory-kicker">CDM 2026 · Le verdict est tombé</p>
+        <img className="victory-trophy" src="/assets/lego-world-cup-trophy.png" alt="" />
+        <p className="victory-eyebrow">Champion des pronostics</p>
+        <h2>{winner?.name || "Notre futur champion"}</h2>
+        <p className="victory-score">
+          {winner ? <><strong>{winner.points}</strong> points</> : "Le classement apparaîtra ici"}
+        </p>
+
+        {podium.length > 1 && (
+          <div className="victory-podium" aria-label="Podium du classement">
+            {podium.map((participant, index) => (
+              <div className={"victory-place place-" + (index + 1)} key={participant.id}>
+                <span>{index + 1}</span>
+                <strong>{participant.name}</strong>
+                <small>{participant.points} pts</small>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {worldChampion && (
+          <p className="victory-world-champion">
+            <span>Champion du monde</span>
+            <strong>{worldChampion}</strong>
+          </p>
+        )}
+        <p className="victory-footer">Bravo à toutes et à tous pour cette Coupe du Monde !</p>
+      </div>
+    </div>
+  );
+}
+
+function PointsHistoryPanel({ authHeaders, refreshKey }) {
   const [history, setHistory] = useState({ days: [], series: [] });
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -433,7 +514,7 @@ function PointsHistoryPanel({ authHeaders }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   return (
     <section className="panel points-history-panel">
